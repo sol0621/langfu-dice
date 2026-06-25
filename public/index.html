@@ -178,6 +178,7 @@ function sendMsg(type, data = {}) {
 function handleServerMessage(msg) {
   const { type, data } = msg;
   switch (type) {
+    case 'user_id': state.userId = data.userId; break;
     case 'room_created': state.roomId = data.roomId; break;
     case 'room_update': updateRoom(data); break;
     case 'game_started': onGameStarted(data); break;

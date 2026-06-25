@@ -50,6 +50,7 @@ wss.on('connection', (ws) => {
   ws.userId = genId();
   ws.roomId = null;
   ws.nickname = null;
+  send(ws, { type: 'user_id', data: { userId: ws.userId } });
 
   ws.on('message', (raw) => {
     try {
