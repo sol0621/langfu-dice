@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>郎府摇骰子</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0d1a;color:#e0d8c0;min-height:100vh;overflow-x:hidden;}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;}
+.page{display:none;flex-direction:column;align-items:center;padding:20px;min-height:100vh;}
+.page.active{display:flex;}
+
+/* === 首页 === */
+.home-logo{font-size:80px;margin:60px 0 10px;animation:bounce 2s infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
+h1{font-size:32px;color:#d4a853;margin-bottom:30px;text-shadow:0 0 20px rgba(212,168,83,.4);}
+.home-logo + h1{margin-bottom:40px;}
+
+input[type=text]{width:100%;padding:14px 18px;border-radius:12px;border:1px solid #3a3050;background:#1a1a2e;color:#e0d8c0;font-size:16px;margin-bottom:12px;outline:none;transition:border .3s;}
+input[type=text]:focus{border-color:#d4a853;}
+.btn-primary,.btn-secondary,.btn-text,.btn-danger{border:none;border-radius:12px;font-size:16px;cursor:pointer;transition:all .2s;font-weight:600;}
+.btn-primary{width:100%;padding:14px;background:linear-gradient(135deg,#d4a853,#b8860b);color:#0d0d1a;margin-bottom:16px;}
+.btn-primary:active{transform:scale(.97);opacity:.9;}
+.btn-secondary{width:100%;padding:14px;background:transparent;border:1px solid #d4a853;color:#d4a853;}
+.btn-text{background:none;color:#888;padding:8px;font-size:14px;}
+.divider{width:100%;display:flex;align-items:center;margin:20px 0;color:#555;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#333;}
+.divider span{padding:0 16px;font-size:13px;}
+
+/* === 大厅 === */
+.lobby-header{width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 0 20px;}
+.room-info{text-align:center;}
+.room-id-label{font-size:12px;color:#888;margin-bottom:4px;}
+.room-id-value{font-size:24px;font-weight:700;color:#d4a853;letter-spacing:3px;}
+.mode-selector{width:100%;display:flex;gap:8px;margin-bottom:20px;}
+.mode-btn{flex:1;padding:12px 8px;border-radius:10px;border:1px solid #3a3050;background:#1a1a2e;color:#888;font-size:14px;cursor:pointer;text-align:center;transition:all .3s;}
+.mode-btn.active{border-color:#d4a853;color:#d4a853;background:rgba(212,168,83,.1);}
+.mode-btn:disabled{opacity:.4;pointer-events:none;}
+.player-list{width:100%;display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
+.player-card{flex:1 1 calc(50% - 5px);min-width:140px;padding:14px;border-radius:12px;background:#1a1a2e;border:1px solid #2a2a40;text-align:center;font-size:15px;position:relative;}
+.player-card.host::after{content:'👑';position:absolute;top:-8px;right:-4px;font-size:18px;}
+.player-card.eliminated{opacity:.3;text-decoration:line-through;}
+.btn-start{margin-top:auto;}
+
+/* === 游戏 === */
+.game-header{width:100%;text-align:center;padding:10px 0;}
+#game-status-bar{font-size:14px;color:#888;padding:8px;border-radius:8px;background:#1a1a2e;}
+.game-area{width:100%;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.game-actions{width:100%;padding:10px 0 20px;}
+
+/* === 骰子 === */
+.dice-container{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:20px 0;}
+.die{width:60px;height:60px;border-radius:12px;background:#f5f0e0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#1a1a2e;position:relative;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:transform .3s;}
+.die.rolling{animation:die-roll .15s infinite;}
+@keyframes die-roll{0%{transform:rotate(0deg)}25%{transform:rotate(90deg)}50%{transform:rotate(180deg)}75%{transform:rotate(270deg)}100%{transform:rotate(360deg)}}
+.die.wild{color:#c0392b;}
+
+/* === 大话骰 === */
+.call-display{text-align:center;margin:16px 0;}
+.call-current{font-size:36px;font-weight:700;color:#d4a853;}
+.call-info{font-size:13px;color:#888;margin-top:4px;}
+.call-inputs{display:flex;gap:12px;align-items:center;margin:16px 0;width:100%;}
+.call-inputs select{padding:12px;border-radius:10px;border:1px solid #3a3050;background:#1a1a2e;color:#e0d8c0;font-size:18px;text-align:center;}
+.call-inputs .btn-primary{width:auto;flex:1;margin:0;}
+
+/* === 猜大小 === */
+.guess-buttons{display:flex;gap:16px;width:100%;margin:16px 0;}
+.guess-btn{flex:1;padding:24px;border-radius:16px;border:2px solid #3a3050;background:#1a1a2e;color:#e0d8c0;font-size:20px;font-weight:700;cursor:pointer;transition:all .2s;}
+.guess-btn.big{border-color:#e74c3c;color:#e74c3c;}
+.guess-btn.small{border-color:#3498db;color:#3498db;}
+.guess-btn:active{transform:scale(.95);}
+.guess-btn:disabled{opacity:.3;pointer-events:none;}
+
+/* === 21点 === */
+.twentyone-actions{display:flex;gap:16px;width:100%;margin:16px 0;}
+.twentyone-actions .btn-primary{flex:1;margin:0;}
+.twentyone-actions .btn-secondary{flex:1;}
+
+/* === 结果页 === */
+#page-result{justify-content:center;}
+#result-content{text-align:center;margin-bottom:30px;}
+.result-msg{font-size:24px;font-weight:700;color:#d4a853;margin-bottom:16px;}
+.result-detail{font-size:14px;color:#888;margin-bottom:20px;}
+#page-result .btn-primary{width:200px;}
+
+/* === Toast === */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#d4a853;color:#0d0d1a;padding:10px 24px;border-radius:20px;font-weight:600;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100;}
+.toast.show{opacity:1;}
+
+/* === 模式名 === */
+.mode-name{font-size:16px;color:#d4a853;margin-bottom:8px;font-weight:600;}
+
+/* === 玩家总数显示 === */
+.total-display{font-size:32px;font-weight:700;color:#e0d8c0;margin:8px 0;}
+.total-label{font-size:13px;color:#888;}
+.bust-label{color:#e74c3c;font-weight:700;font-size:18px;}
+
+/* === 下注面板（猜大小） === */
+.guess-status{font-size:14px;color:#888;margin-top:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- page-home -->
+  <div id="page-home" class="page active">
+    <div class="home-logo">🎲</div>
+    <h1>郎府摇骰子</h1>
+    <input id="nickname-input" type="text" placeholder="输入你的昵称" maxlength="8">
+    <button id="btn-create" class="btn-primary">创建房间</button>
+    <div class="divider"><span>或</span></div>
+    <input id="join-room-input" type="text" placeholder="输入房间号">
+    <button id="btn-join" class="btn-secondary">加入房间</button>
+  </div>
+
+  <!-- page-lobby -->
+  <div id="page-lobby" class="page">
+    <div class="lobby-header">
+      <button id="btn-leave" class="btn-text">退出</button>
+      <div class="room-info">
+        <div class="room-id-label">房间号</div>
+        <div id="room-id-display" class="room-id-value"></div>
+      </div>
+      <button id="btn-copy-room" class="btn-text">复制</button>
+    </div>
+    <div id="mode-selector" class="mode-selector"></div>
+    <div id="player-list" class="player-list"></div>
+    <button id="btn-start" class="btn-primary btn-start">开始游戏</button>
+  </div>
+
+  <!-- page-game -->
+  <div id="page-game" class="page">
+    <div class="game-header">
+      <div id="game-status-bar"></div>
+    </div>
+    <div id="game-area" class="game-area"></div>
+    <div id="game-actions" class="game-actions"></div>
+  </div>
+
+  <!-- page-result -->
+  <div id="page-result" class="page">
+    <div id="result-content"></div>
+    <button id="btn-next-round" class="btn-primary">再来一局</button>
+  </div>
+</div>
+
+<!-- toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ========================== 状态管理 ==========================
+const state = {
+  userId: null,
+  nickname: '',
+  roomId: null,
+  isHost: false,
+  room: null,
+  myDice: [],
+  myTotal: 0,
+  page: 'home'
+};
+
+// ========================== WebSocket ==========================
+const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const ws = new WebSocket(`${protocol}//${location.host}`);
+
+ws.onopen = () => console.log('WebSocket connected');
+ws.onmessage = (e) => handleServerMessage(JSON.parse(e.data));
+ws.onclose = () => toast('连接断开，请刷新页面');
+ws.onerror = () => toast('连接失败');
+
+function sendMsg(type, data = {}) {
+  if (ws.readyState === 1) ws.send(JSON.stringify({ type, data }));
+}
+
+function handleServerMessage(msg) {
+  const { type, data } = msg;
+  switch (type) {
+    case 'room_created': state.roomId = data.roomId; break;
+    case 'room_update': updateRoom(data); break;
+    case 'game_started': onGameStarted(data); break;
+    case 'dice_result': onDiceResult(data); break;
+    case 'call_made': onCallMade(data); break;
+    case 'challenge_result': onChallengeResult(data); break;
+    case 'guess_result': onGuessResult(data); break;
+    case 'hit_result': onHitResult(data); break;
+    case 'stand_result': onStandResult(data); break;
+    case 'twenty_one_result': onTwentyOneResult(data); break;
+    case 'game_over': onGameOver(data); break;
+    case 'error': toast(data.message || '错误'); break;
+  }
+}
+
+// ========================== 页面切换 ==========================
+function showPage(page) {
+  state.page = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+}
+
+// ========================== Toast ==========================
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ========================== 首页事件 ==========================
+document.getElementById('btn-create').onclick = () => {
+  const name = document.getElementById('nickname-input').value.trim();
+  if (!name) return toast('请输入昵称');
+  state.nickname = name;
+  sendMsg('create_room', { nickname: name, mode: 'dice_poker' });
+  showPage('lobby');
+};
+
+document.getElementById('btn-join').onclick = () => {
+  const name = document.getElementById('nickname-input').value.trim();
+  const roomId = document.getElementById('join-room-input').value.trim();
+  if (!name) return toast('请输入昵称');
+  if (!roomId) return toast('请输入房间号');
+  state.nickname = name;
+  sendMsg('join_room', { roomId, nickname: name });
+  showPage('lobby');
+};
+
+// ========================== 大厅事件 ==========================
+document.getElementById('btn-leave').onclick = () => {
+  sendMsg('leave_room');
+  state.roomId = null; state.room = null;
+  showPage('home');
+};
+
+document.getElementById('btn-copy-room').onclick = () => {
+  if (state.roomId) {
+    navigator.clipboard.writeText(state.roomId).then(() => toast('房间号已复制'));
+  }
+};
+
+document.getElementById('btn-start').onclick = () => {
+  if (!state.isHost) return toast('只有房主可以开始游戏');
+  sendMsg('start_game');
+};
+
+document.getElementById('btn-next-round').onclick = () => {
+  sendMsg('next_round');
+};
+
+// ========================== 大厅渲染 ==========================
+function updateRoom(data) {
+  state.room = data;
+  state.isHost = data.hostId === state.userId;
+  document.getElementById('room-id-display').textContent = data.roomId;
+
+  // 模式选择器
+  renderModeSelector(data);
+
+  // 玩家列表
+  renderPlayerList(data);
+
+  // 开始按钮
+  const btn = document.getElementById('btn-start');
+  btn.style.display = state.isHost ? 'block' : 'none';
+  btn.disabled = data.status !== 'idle' && data.status !== 'gameover';
+  if (data.status === 'playing' || data.status === 'revealing') {
+    btn.textContent = '游戏中...';
+  } else if (data.status === 'gameover') {
+    btn.textContent = '开始下一局';
+  } else {
+    btn.textContent = '开始游戏';
+  }
+}
+
+function renderModeSelector(data) {
+  const modes = [
+    { key: 'dice_poker', emoji: '🎭', name: '大话骰' },
+    { key: 'guess_size', emoji: '🎯', name: '猜大小' },
+    { key: 'twenty_one', emoji: '🃏', name: '21点' }
+  ];
+  const el = document.getElementById('mode-selector');
+  el.innerHTML = modes.map(m => {
+    const active = m.key === data.mode ? ' active' : '';
+    const disabled = (data.status !== 'idle' && data.status !== 'gameover') ? ' disabled' : '';
+    return `<button class="mode-btn${active}"${disabled} data-mode="${m.key}">${m.emoji} ${m.name}</button>`;
+  }).join('');
+
+  el.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (!state.isHost) return toast('只有房主可以切换模式');
+      sendMsg('switch_mode', { mode: btn.dataset.mode });
+    };
+  });
+}
+
+function renderPlayerList(data) {
+  const el = document.getElementById('player-list');
+  el.innerHTML = data.players.map(p => {
+    let cls = 'player-card';
+    if (p.userId === data.hostId) cls += ' host';
+    if (!p.isAlive) cls += ' eliminated';
+    const statusBadge = p.isAlive ? '' : ' (已淘汰)';
+    const stoppedBadge = p.isStopped ? ' [停]' : '';
+    return `<div class="${cls}">${p.nickname}${statusBadge}${stoppedBadge}</div>`;
+  }).join('');
+}
+
+// ========================== 游戏事件 ==========================
+function onGameStarted(data) {
+  showPage('game');
+  document.getElementById('game-status-bar').textContent = `第 ${data.round} 局 — ${modeLabel(data.mode)}`;
+  const area = document.getElementById('game-area');
+  const actions = document.getElementById('game-actions');
+  area.innerHTML = '<div class="dice-container">' + Array.from({length:5},() => '<div class="die rolling">🎲</div>').join('') + '</div>';
+  actions.innerHTML = '';
+}
+
+function onDiceResult(data) {
+  state.myDice = data.values;
+  state.myTotal = data.total || 0;
+  renderGameUI();
+}
+
+function onCallMade(data) {
+  const { nickname, count, face } = data;
+  const el = document.getElementById('game-status-bar');
+  el.innerHTML = `<strong>${nickname}</strong> 叫了 <span style="color:#d4a853;font-size:20px">${count}个${face}</span>`;
+  renderGameUI(); // 更新当前叫法
+}
+
+function onChallengeResult(data) {
+  const { challengerNickname, calledPlayerNickname, calledCount, calledFace, actualCount, correct, loserNickname, allDice } = data;
+  const area = document.getElementById('game-area');
+  const actions = document.getElementById('game-actions');
+
+  const winnerLabel = correct ? calledPlayerNickname : challengerNickname;
+  area.innerHTML = `
+    <div class="mode-name">开骰结果</div>
+    <div class="call-display">
+      <div>${calledPlayerNickname} 叫 <strong style="color:#d4a853;font-size:24px">${calledCount}个${calledFace}</strong></div>
+      <div style="margin-top:8px">实际有 <strong style="color:#e74c3c;font-size:24px">${actualCount}</strong> 个</div>
+    </div>
+    <div class="dice-container" style="flex-wrap:wrap">
+      ${allDice.map(p => `<div style="text-align:center"><div style="font-size:12px;color:#888">${p.nickname}</div><div style="font-size:24px">${p.values.map(v=>v===1?`<span style="color:#c0392b">⚀</span>`:`⚀`.replace('⚀','⚁⚂⚃⚄⚅'[v-2]||'⚀')).join(' ')}</div></div>`).join('')}
+    </div>
+    <div class="result-msg" style="font-size:20px">${winnerLabel} 胜！${loserNickname} 淘汰</div>
+  `;
+
+  document.getElementById('game-status-bar').textContent = `${challengerNickname} 质疑 → ${correct ? '质疑失败！' : '质疑成功！'}`;
+  actions.innerHTML = '<button class="btn-primary" onclick="sendMsg(\'next_round\')">查看结果</button>';
+}
+
+function onGuessResult(data) {
+  const { diceValues, sum, isTriple, isBig, guesses, losers, losersNickname } = data;
+  const area = document.getElementById('game-area');
+  const actions = document.getElementById('game-actions');
+
+  const resultLabel = isTriple ? '围骰！' : (isBig ? '大' : '小');
+  area.innerHTML = `
+    <div class="mode-name">开骰结果</div>
+    <div class="dice-container">
+      ${diceValues.map(v => `<div class="die">${faceEmoji(v)}</div>`).join('')}
+    </div>
+    <div class="total-display">${sum} 点 — ${resultLabel}</div>
+    <div style="margin-top:16px;font-size:14px;color:#888">
+      ${guesses.map(g => {
+        const lost = losers.includes(g.userId);
+        return `<div>${g.nickname}: 猜${g.guess==='big'?'大':'小'} ${lost ? '❌' : '✅'}</div>`;
+      }).join('')}
+    </div>
+    ${losers.length > 0 ? `<div class="result-msg" style="font-size:18px;margin-top:12px">${losersNickname} 淘汰</div>` : ''}
+  `;
+
+  document.getElementById('game-status-bar').textContent = isTriple ? '围骰——全员淘汰！' : `点数 ${sum}，${resultLabel}`;
+  actions.innerHTML = '<button class="btn-primary" onclick="sendMsg(\'next_round\')">查看结果</button>';
+}
+
+function onHitResult(data) {
+  const { userId, nickname, total, isBusted } = data;
+  const el = document.getElementById('game-status-bar');
+  if (isBusted) {
+    el.textContent = `${nickname} 加骰 → 爆掉了！(${total}点)`;
+  } else {
+    el.textContent = `${nickname} 加骰 → ${total}点`;
+  }
+  renderGameUI();
+}
+
+function onStandResult(data) {
+  const { nickname, total } = data;
+  document.getElementById('game-status-bar').textContent = `${nickname} 停骰 → ${total}点`;
+  renderGameUI();
+}
+
+function onTwentyOneResult(data) {
+  const { players, winnerIds } = data;
+  const area = document.getElementById('game-area');
+  const actions = document.getElementById('game-actions');
+
+  const winnerNames = players.filter(p => winnerIds.includes(p.userId)).map(p => p.nickname).join('、');
+  area.innerHTML = `
+    <div class="mode-name">亮牌结果</div>
+    ${players.map(p => `
+      <div style="width:100%;padding:10px;margin:4px 0;border-radius:8px;background:${p.isBusted?'rgba(231,76,60,.15)':'#1a1a2e'};border:1px solid ${winnerIds.includes(p.userId)?'#d4a853':'#2a2a40'}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600">${p.nickname} ${winnerIds.includes(p.userId)?'👑':''}</span>
+          <span style="color:${p.isBusted?'#e74c3c':'#e0d8c0'};font-size:18px;font-weight:700">${p.total}点${p.isBusted?' 💥':''}</span>
+        </div>
+        <div style="font-size:20px;margin-top:4px">${p.values.map(v=>faceEmoji(v)).join(' ')}</div>
+      </div>
+    `).join('')}
+    <div class="result-msg" style="font-size:20px;margin-top:16px">${winnerNames} 获胜！</div>
+  `;
+  document.getElementById('game-status-bar').textContent = `${winnerNames} 获胜！`;
+  actions.innerHTML = '<button class="btn-primary" onclick="sendMsg(\'next_round\')">查看结果</button>';
+}
+
+function onGameOver(data) {
+  const { winnerId, message } = data;
+  document.getElementById('result-content').innerHTML = `
+    <div class="result-msg">${message}</div>
+    <div class="result-detail">${winnerId ? '恭喜获胜者！' : ''}</div>
+  `;
+  showPage('result');
+}
+
+// ========================== 游戏 UI 动态渲染 ==========================
+function renderGameUI() {
+  if (!state.room) return;
+  const room = state.room;
+  const mode = room.mode;
+  const area = document.getElementById('game-area');
+  const actions = document.getElementById('game-actions');
+  const bar = document.getElementById('game-status-bar');
+
+  if (room.status === 'revealing') return; // 结果页已接管
+
+  // 渲染骰子
+  if (mode === 'guess_size') {
+    area.innerHTML = `
+      <div class="mode-name">猜大小</div>
+      <div class="dice-container">
+        ${(room.publicDice || [1,1,1]).map((v, i) => {
+          // 公共骰子只有开骰后才显示
+          if (room.status === 'revealing' || room.status === 'gameover') return `<div class="die">${faceEmoji(v)}</div>`;
+          return `<div class="die rolling">🎲</div>`;
+        }).join('')}
+      </div>
+    `;
+  } else if (mode === 'dice_poker') {
+    const lastCall = room.lastCall;
+    area.innerHTML = `
+      <div class="mode-name">大话骰</div>
+      <div class="dice-container">
+        ${state.myDice.map(v => `<div class="die${v===1?' wild':''}">${faceEmoji(v)}</div>`).join('')}
+      </div>
+      <div class="call-display">
+        ${lastCall
+          ? `<div class="call-current">${lastCall.count} 个 ${lastCall.face}</div>`
+          : '<div class="call-info">等待首次叫骰...</div>'}
+        ${lastCall ? `<div class="call-info">上次叫骰者: ${getPlayerName(room.lastCallerId)}</div>` : ''}
+      </div>
+    `;
+
+    // 操作按钮
+    const isMyTurn = getTurnPlayerId(room) === state.userId;
+    actions.innerHTML = `
+      <div class="call-inputs">
+        <select id="call-count">
+          ${Array.from({length:25},(_,i)=>`<option value="${i+1}">${i+1}个</option>`).join('')}
+        </select>
+        <select id="call-face">
+          ${[2,3,4,5,6].map(f => `<option value="${f}">${f}点</option>`).join('')}
+        </select>
+      </div>
+      <button id="btn-call" class="btn-primary">叫骰</button>
+      ${room.lastCall && room.lastCallerId !== state.userId ? '<button id="btn-challenge" class="btn-danger" style="width:100%;padding:14px;border-radius:12px;background:#e74c3c;color:#fff;border:none;font-size:16px;font-weight:600;margin-top:10px;cursor:pointer">🔍 质疑！</button>' : ''}
+    `;
+
+    document.getElementById('btn-call').onclick = () => {
+      const count = parseInt(document.getElementById('call-count').value);
+      const face = parseInt(document.getElementById('call-face').value);
+      sendMsg('call_dice', { count, face });
+    };
+
+    const btnChallenge = document.getElementById('btn-challenge');
+    if (btnChallenge) btnChallenge.onclick = () => sendMsg('challenge');
+
+  } else if (mode === 'twenty_one') {
+    const myPlayer = room.players.find(p => p.userId === state.userId);
+    const isMyTurn = myPlayer && myPlayer.isAlive && !myPlayer.isStopped && !myPlayer.isBusted;
+
+    area.innerHTML = `
+      <div class="mode-name">21点</div>
+      <div class="total-label">我的点数</div>
+      <div class="total-display">${state.myTotal}</div>
+      <div class="dice-container">
+        ${state.myDice.map(v => `<div class="die">${faceEmoji(v)}</div>`).join('')}
+      </div>
+    `;
+
+    actions.innerHTML = isMyTurn ? `
+      <div class="twentyone-actions">
+        <button id="btn-hit" class="btn-primary">加骰</button>
+        <button id="btn-stand" class="btn-secondary">停骰</button>
+      </div>
+    ` : '<div class="guess-status">等待其他玩家操作...</div>';
+
+    const btnHit = document.getElementById('btn-hit');
+    const btnStand = document.getElementById('btn-stand');
+    if (btnHit) btnHit.onclick = () => sendMsg('hit');
+    if (btnStand) btnStand.onclick = () => sendMsg('stand');
+  }
+}
+
+// ========================== 辅助函数 ==========================
+function faceEmoji(v) {
+  const faces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  return faces[v] || '?';
+}
+
+function modeLabel(mode) {
+  return { dice_poker: '大话骰', guess_size: '猜大小', twenty_one: '21点' }[mode] || mode;
+}
+
+function getPlayerName(userId) {
+  if (!state.room) return '?';
+  const p = state.room.players.find(pl => pl.userId === userId);
+  return p ? p.nickname : '?';
+}
+
+function getTurnPlayerId(room) {
+  if (!room || room.mode !== 'dice_poker') return null;
+  const alive = room.players.filter(p => p.isAlive);
+  if (alive.length === 0) return null;
+  return alive[room.turnIndex % alive.length]?.userId || null;
+}
+
+// ========================== 初始化 ==========================
+ws.onopen = () => {
+  // 从 localStorage 恢复昵称
+  const savedName = localStorage.getItem('dice_nickname');
+  if (savedName) document.getElementById('nickname-input').value = savedName;
+};
+
+document.getElementById('nickname-input').onchange = function() {
+  localStorage.setItem('dice_nickname', this.value.trim());
+};
+</script>
+</body>
+</html>
