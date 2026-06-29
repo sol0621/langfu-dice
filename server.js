@@ -47,6 +47,25 @@ function getPlayer(roomId, userId) {
   return { room, player };
 }
 
+// ==================== 大话骰叫骰阶段：检查叫骰合法性 ====================
+let currentCall = null; // { count, point, userId, round }
+
+function resetCurrentCall() {
+  currentCall = null;
+}
+
+function validateCall(count, point) {
+  if (point < 1 || point > 6) return { ok: false, msg: '点数需在 1-6 之间' };
+  if (!currentCall) {
+    if (count < 1) return { ok: false, msg: '个数至少为 1' };
+    return { ok: true, msg: 'call_added' };
+  }
+  // 必须大于当前叫骰：个数更大，或个数相同但点数更大
+  if (count > currentCall.count) return { ok: true, msg: 'call_added' };
+  if (count === currentCall.count && point > currentCall.point) return { ok: true, msg: 'call_added' };
+  return { ok: false, msg: `需大于 ${currentCall.count}个${currentCall.point}` };
+}
+
 // ==================== 广播 ====================
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 
@@ -81,6 +100,7 @@ function buildRoomUpdate(room) {
         isAlive: p.isAlive,
         isStopped: p.isStopped || false,
         isBusted: p.isBusted || false,
+        isRolled: p.isRolled || false,
         disconnected: p.disconnected || false
       })),
       // 猜大小：公共骰子是公开数据
@@ -174,6 +194,7 @@ function handleHttpCreateRoom(data, res) {
       isAlive: true,
       isStopped: false,
       isBusted: false,
+      isRolled: false,
       diceValues: [],
       total: 0,
       disconnected: false
@@ -204,7 +225,7 @@ function handleHttpJoinRoom(data, res) {
   const userId = (data.userId || '').trim() || genUserId();
   room.players.push({
     userId, nickname,
-    isAlive: true, isStopped: false, isBusted: false,
+    isAlive: true, isStopped: false, isBusted: false, isRolled: false,
     diceValues: [], total: 0, disconnected: false
   });
 
@@ -311,11 +332,96 @@ function handleMessage(ws, msg) {
       case 'hit':           handleHit(ws); break;
       case 'stand':         handleStand(ws); break;
       case 'next_round':    handleNextRound(ws); break;
+      case 'roll_dice':     handleRollDice(ws); break;
+      case 'call_dice':     handleCallDice(ws, data); break;
+      case 'reset_round':   handleResetRound(ws); break;
       default: send(ws, { type: 'error', data: { message: `未知消息类型: ${type}` } });
     }
   } catch (e) {
     send(ws, { type: 'error', data: { message: e.message } });
   }
+}
+
+// ==================== 摇骰子（在线摇模式） ====================
+function handleRollDice(ws) {
+  const { room, player } = getRoomPlayer(ws);
+  if (room.roomStatus !== 'idle' && room.roomStatus !== 'rolling') {
+    throw new Error('NOT_IDLE');
+  }
+
+  // 设置为 rolling 状态
+  if (room.roomStatus === 'idle') {
+    room.roomStatus = 'rolling';
+    resetCurrentCall();
+  }
+
+  // 每人5颗骰子（大话骰固定5颗）
+  const diceCount = 5;
+  player.diceValues = rollDice(diceCount);
+  player.total = sum(player.diceValues);
+  player.isRolled = true;
+
+  // 发送私人骰子结果
+  sendTo(player.userId, {
+    type: 'dice_result',
+    data: { diceValues: [...player.diceValues], total: player.total }
+  });
+
+  // 广播玩家已摇状态
+  broadcast(room.roomId, buildRoomUpdate(room));
+
+  // 通知该玩家自己的骰子结果
+  send(ws, { type: 'roll_ack', data: { diceCount, rolled: true } });
+}
+
+// ==================== 叫骰 ====================
+function handleCallDice(ws, data) {
+  const { room, player } = getRoomPlayer(ws);
+  if (room.gameMode !== DICE_POKER) throw new Error('WRONG_MODE');
+  if (!player.isRolled) throw new Error('NOT_ROLLED');
+
+  const count = parseInt(data.count, 10);
+  const point = parseInt(data.point, 10);
+
+  const validation = validateCall(count, point);
+  if (!validation.ok) throw new Error(validation.msg);
+
+  currentCall = { count, point, userId: player.userId, round: room.currentRound || 1 };
+
+  // 广播叫骰
+  broadcast(room.roomId, {
+    type: 'call_dice_broadcast',
+    data: {
+      userId: player.userId,
+      nickname: player.nickname,
+      count,
+      point
+    }
+  });
+}
+
+// ==================== 重置本局 ====================
+function handleResetRound(ws) {
+  const { room } = getRoomPlayer(ws);
+  if (room.hostId !== ws.userId) throw new Error('NOT_HOST');
+
+  room.roomStatus = 'idle';
+  resetCurrentCall();
+  room.winnerId = null;
+  room.publicDiceValues = null;
+  room.publicTotal = null;
+  room.publicResult = null;
+
+  room.players.forEach(p => {
+    p.isAlive = true;
+    p.isStopped = false;
+    p.isBusted = false;
+    p.isRolled = false;
+    p.diceValues = [];
+    p.total = 0;
+  });
+
+  broadcast(room.roomId, buildRoomUpdate(room));
 }
 
 // ==================== 开始游戏 ====================
