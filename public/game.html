@@ -397,6 +397,7 @@
   const MY_NICKNAME = localStorage.getItem('langfu_nickname') || '玩家';
   const MY_USER_ID = localStorage.getItem('langfu_userId') || ('u_' + Math.random().toString(36).slice(2, 10));
   localStorage.setItem('langfu_userId', MY_USER_ID);
+  const DICE_COUNT = parseInt(localStorage.getItem('langfu_diceCount'), 10) || 5; // 大话骰默认5颗
 
   // ========== 状态 ==========
   let myDiceValues = [];
@@ -456,7 +457,7 @@
 
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    camera.position.set(0, 1.5, 8);
+    camera.position.set(0, 1.0, 6);
     camera.lookAt(0, 0, 0);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -501,8 +502,8 @@
     diceGroup.position.y = 0;
     scene.add(diceGroup);
 
-    // 创建5颗骰子（大话骰默认5颗）
-    createDiceMeshes(5);
+    // 创建骰子（从配置读取数量）
+    createDiceMeshes(DICE_COUNT);
 
     // 初始摆设：堆叠在平台上
     layoutDiceIdle();
@@ -513,8 +514,8 @@
 
   function createDiceGeometry() {
     // 带圆角的方块
-    const size = 0.85;
-    const radius = 0.10;
+    const size = 1.05;
+    const radius = 0.12;
     const detail = 2;
     return new THREE.BoxGeometry(size, size, size, detail, detail, detail);
   }
@@ -536,38 +537,38 @@
   // 骰子面纹理（用Canvas画点）
   function createDiceFaceTexture(value) {
     const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 128;
+    canvas.width = 256; canvas.height = 256;
     const ctx = canvas.getContext('2d');
 
     // 象牙白底色
-    const grad = ctx.createRadialGradient(64, 64, 10, 64, 64, 90);
+    const grad = ctx.createRadialGradient(128, 128, 20, 128, 128, 180);
     grad.addColorStop(0, '#fffef5');
     grad.addColorStop(0.7, '#f3edd8');
     grad.addColorStop(1, '#d4c9a3');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillRect(0, 0, 256, 256);
 
     // 边框
     ctx.strokeStyle = '#b8a878';
-    ctx.lineWidth = 3;
-    ctx.roundRect(6, 6, 116, 116, 10);
+    ctx.lineWidth = 4;
+    ctx.roundRect(8, 8, 240, 240, 16);
     ctx.stroke();
 
     if (value < 1 || value > 6) return new THREE.CanvasTexture(canvas);
 
-    // 骰点（红/金色）
-    const dotR = 12;
+    // 骰点（红/金色），大圆点提升易读性
+    const dotR = 22;
     const positions = {
-      1: [[64, 64]],
-      2: [[32, 96], [96, 32]],
-      3: [[32, 96], [64, 64], [96, 32]],
-      4: [[32, 32], [96, 32], [32, 96], [96, 96]],
-      5: [[32, 32], [96, 32], [64, 64], [32, 96], [96, 96]],
-      6: [[32, 32], [96, 32], [32, 64], [96, 64], [32, 96], [96, 96]]
+      1: [[128, 128]],
+      2: [[64, 192], [192, 64]],
+      3: [[64, 192], [128, 128], [192, 64]],
+      4: [[64, 64], [192, 64], [64, 192], [192, 192]],
+      5: [[64, 64], [192, 64], [128, 128], [64, 192], [192, 192]],
+      6: [[64, 64], [192, 64], [64, 128], [192, 128], [64, 192], [192, 192]]
     };
 
     positions[value].forEach(([cx, cy], i) => {
-      const dotGrad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, dotR);
+      const dotGrad = ctx.createRadialGradient(cx - 3, cy - 3, 2, cx, cy, dotR);
       // 1和4点是红色，其余金色
       if (value === 1 || value === 4) {
         dotGrad.addColorStop(0, '#ff8a80');
@@ -585,7 +586,7 @@
       // 高光
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.beginPath();
-      ctx.arc(cx - 2, cy - 2, dotR * 0.35, 0, Math.PI * 2);
+      ctx.arc(cx - 3, cy - 3, dotR * 0.35, 0, Math.PI * 2);
       ctx.fill();
     });
 
@@ -612,7 +613,7 @@
         }));
       });
 
-      const geo = new THREE.BoxGeometry(0.82, 0.82, 0.82);
+      const geo = new THREE.BoxGeometry(1.0, 1.0, 1.0);
       const mesh = new THREE.Mesh(geo, materials);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -927,7 +928,7 @@
         console.warn('dice_result timeout, force stopping');
         // 用随机值兜底
         if (myDiceValues.length === 0) {
-          myDiceValues = Array.from({ length: 5 }, () => Math.ceil(Math.random() * 6));
+          myDiceValues = Array.from({ length: DICE_COUNT }, () => Math.ceil(Math.random() * 6));
           isRolled = true;
         }
         finishRoll();

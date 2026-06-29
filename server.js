@@ -181,10 +181,13 @@ function handleHttpCreateRoom(data, res) {
 
   // userId：优先用客户端指定的（保持身份一致），否则生成
   const userId = (data.userId || '').trim() || genUserId();
+  const diceCount = parseInt(data.diceCount, 10);
+  const validDiceCount = (diceCount >= 3 && diceCount <= 6) ? diceCount : 5;
   const room = {
     roomId,
     roomStatus: 'idle',
     gameMode: mode,
+    diceCount: validDiceCount,
     hostId: userId,
     currentRound: 0,
     winnerId: null,
@@ -355,8 +358,8 @@ function handleRollDice(ws) {
     resetCurrentCall();
   }
 
-  // 每人5颗骰子（大话骰固定5颗）
-  const diceCount = 5;
+  // 使用房间配置的骰子数量
+  const diceCount = room.diceCount || 5;
   player.diceValues = rollDice(diceCount);
   player.total = sum(player.diceValues);
   player.isRolled = true;
@@ -454,9 +457,10 @@ function handleStartGame(ws) {
     if (!rooms.has(room.roomId)) return;
 
     if (room.gameMode === DICE_POKER) {
-      // 大话骰：每人5颗，私密
+      // 大话骰：每人配置数量，私密
+      const dc = room.diceCount || 5;
       room.players.forEach(p => {
-        if (p.isAlive) p.diceValues = rollDice(5);
+        if (p.isAlive) p.diceValues = rollDice(dc);
       });
       room.players.forEach(p => {
         if (p.isAlive) sendTo(p.userId, { type: 'dice_result', data: { diceValues: p.diceValues } });
