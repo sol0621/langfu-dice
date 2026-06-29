@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>创建人配置房间 - 郎府摇骰子</title>
+<style>
+  /* ========== 基础重置 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========== 根容器（H5基准：iPhone 12/13/14 = 390×844） ========== */
+  .app {
+    position: relative;
+    width: 100vw; height: 100vh;
+    max-width: 390px; max-height: 844px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* ========== 背景：毛毡 + 木色边框 ========== */
+  .wood-frame {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #3d2810 0%, #5a3d18 30%, #6b4a1f 60%, #3d2810 100%);
+    z-index: 1;
+  }
+  .wood-frame::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0px, transparent 18px,
+        rgba(0,0,0,0.15) 18px, rgba(0,0,0,0.15) 19px,
+        transparent 19px, transparent 35px,
+        rgba(255,200,100,0.05) 35px, rgba(255,200,100,0.05) 36px);
+  }
+  .felt-bg {
+    position: absolute; top: 20px; bottom: 20px; left: 20px; right: 20px;
+    background:
+      radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
+    border-radius: 8px;
+    z-index: 2;
+  }
+  .felt-bg::before {
+    content: ''; position: absolute; inset: 0; opacity: 0.4;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(80,80,80,0.5) 0%, transparent 1%),
+      radial-gradient(circle at 70% 60%, rgba(60,60,60,0.4) 0%, transparent 1%),
+      radial-gradient(circle at 40% 80%, rgba(70,70,70,0.45) 0%, transparent 1%),
+      radial-gradient(circle at 85% 25%, rgba(55,55,55,0.4) 0%, transparent 1%),
+      radial-gradient(circle at 15% 65%, rgba(75,75,75,0.45) 0%, transparent 1%);
+    background-size: 12px 12px, 14px 14px, 16px 16px, 13px 13px, 15px 15px;
+    border-radius: 8px;
+  }
+
+  /* ========== 面板卡片 ========== */
+  .panel {
+    position: relative;
+    z-index: 5;
+    margin: 60px 24px 0;
+    padding: 0 0 24px;
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    border: 2px solid transparent;
+    border-image: linear-gradient(180deg, #ffd970 0%, #c8a017 50%, #8b6914 100%) 1;
+    border-radius: 14px;
+    box-shadow:
+      0 8px 24px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,200,100,0.15);
+  }
+  /* 金色边框四角装饰 */
+  .panel::before, .panel::after {
+    content: ''; position: absolute; width: 20px; height: 20px;
+    border: 3px solid #ffd970;
+  }
+  .panel::before { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 14px; }
+  .panel::after  { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 14px; }
+
+  /* ========== 标题栏 ========== */
+  .panel-title {
+    position: relative;
+    margin: -16px auto 18px;
+    width: 220px;
+    padding: 10px 0;
+    background: linear-gradient(180deg, #4a3010 0%, #2a1a08 100%);
+    border: 2px solid #ffd970;
+    border-radius: 0 0 14px 14px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  }
+  .panel-title::before, .panel-title::after {
+    content: ''; position: absolute; bottom: -2px; width: 12px; height: 12px;
+    background: #ffd970;
+    border-radius: 50%;
+  }
+  .panel-title::before { left: -6px; bottom: 6px; }
+  .panel-title::after { right: -6px; bottom: 6px; }
+  .panel-title-text {
+    color: #ffd700;
+    font-size: 20px; font-weight: 800;
+    letter-spacing: 3px;
+    text-shadow: 0 1px 0 #5a3a08, 0 2px 2px rgba(0,0,0,0.6);
+  }
+
+  /* 关闭按钮 */
+  .btn-close {
+    position: absolute; top: 10px; right: 10px;
+    width: 28px; height: 28px;
+    background: #c8a017;
+    border: 2px solid #5a3a08;
+    border-radius: 50%;
+    color: #2a1a08;
+    font-size: 16px; font-weight: 900;
+    cursor: pointer; outline: none;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .btn-close:active { transform: scale(0.92); }
+
+  /* ========== 头部信息行 ========== */
+  .header-info {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px;
+    margin-bottom: 8px;
+    color: #ffffff;
+    font-size: 14px;
+  }
+  .header-info .room-code {
+    font-weight: 700;
+  }
+  .header-info .room-code b {
+    color: #ffd700; font-size: 18px; font-weight: 800;
+    margin-left: 4px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  }
+  .header-info .creator {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .header-info .creator-icon {
+    width: 18px; height: 18px;
+    background: linear-gradient(135deg, #ffd970 0%, #c8a017 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #2a1a08; font-weight: 800;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .header-info .creator-name {
+    color: #ffd700; font-weight: 700;
+  }
+
+  /* ========== 模式区 ========== */
+  .field-block {
+    margin: 12px 18px 16px;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid #5a3a08;
+    border-radius: 10px;
+  }
+  .field-label {
+    display: flex; align-items: center; gap: 6px;
+    color: #ffffff;
+    font-size: 15px; font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .field-label::before {
+    content: ''; width: 3px; height: 14px;
+    background: linear-gradient(180deg, #ffd970, #c8a017);
+    border-radius: 2px;
+  }
+
+  /* 模式按钮组 */
+  .mode-buttons {
+    display: flex; gap: 10px; justify-content: center;
+  }
+  .mode-btn {
+    flex: 1; max-width: 100px;
+    height: 38px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #ffffff;
+    font-size: 15px; font-weight: 800;
+    letter-spacing: 1px;
+    border: 1.5px solid #5a1f08;
+    border-radius: 19px;
+    cursor: pointer; outline: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 4px rgba(0,0,0,0.3),
+      0 2px 4px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+  }
+  .mode-btn:active { transform: scale(0.96); }
+  .mode-btn::before {
+    content: ''; position: absolute;
+    top: 2px; left: 6px; right: 6px; height: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 100%);
+    border-radius: 16px 16px 6px 6px;
+    pointer-events: none;
+  }
+  .mode-btn.active {
+    background: linear-gradient(180deg, #ffb060 0%, #ff8a3d 50%, #ff6b1f 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      0 0 0 2px #ffd700,
+      0 2px 6px rgba(255,180,40,0.6);
+  }
+
+  /* ========== 数量调整行（纵向对齐 + 不换行） ========== */
+  .stepper-row {
+    display: flex; align-items: center; flex-wrap: nowrap;
+    padding: 6px 18px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .stepper-label {
+    color: #ffffff;
+    font-size: 14px; font-weight: 700;
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stepper-label::before {
+    content: ''; width: 3px; height: 14px;
+    background: linear-gradient(180deg, #ffd970, #c8a017);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .stepper-value {
+    flex: 1;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .stepper-input {
+    width: 56px; height: 32px;
+    background: #0a0a0a;
+    border: 1px solid #5a3a08;
+    border-radius: 6px;
+    color: #ffd700; font-size: 16px; font-weight: 700;
+    text-align: center;
+    outline: none;
+    flex-shrink: 0;
+  }
+  .stepper-input:focus { border-color: #ffd700; }
+  .stepper-btn {
+    width: 28px; height: 28px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #fff; font-size: 18px; font-weight: 900;
+    border: 1.5px solid #5a1f08;
+    border-radius: 50%;
+    cursor: pointer; outline: none;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; flex-shrink: 0;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      0 2px 3px rgba(0,0,0,0.4);
+  }
+  .stepper-btn:active { transform: scale(0.92); }
+  .stepper-range {
+    color: #999; font-size: 11px; white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ========== 在线摇 / 当面摇 ========== */
+  .play-mode-group {
+    display: flex; gap: 14px; justify-content: center;
+    margin: 18px 18px 20px;
+    padding: 0;
+  }
+  .play-mode-btn {
+    position: relative;
+    width: 110px; height: 38px;
+    background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #1a1a1a 100%);
+    color: #ffffff;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px;
+    border: 1.5px solid #5a3a08;
+    border-radius: 19px;
+    cursor: pointer; outline: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      inset 0 -2px 4px rgba(0,0,0,0.4),
+      0 2px 6px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    transition: transform 0.1s;
+  }
+  .play-mode-btn:active { transform: scale(0.96); }
+  .play-mode-btn.active {
+    background: linear-gradient(180deg, #6a4a18 0%, #4a3010 50%, #2a1a08 100%);
+    border-color: #ffd700;
+    box-shadow:
+      inset 0 1px 0 rgba(255,200,100,0.3),
+      0 0 0 1px #ffd700,
+      0 2px 8px rgba(255,180,40,0.5);
+    color: #ffd700;
+  }
+
+  /* ========== 底部确定按钮 ========== */
+  .panel-actions {
+    display: flex; gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+    padding: 0 18px;
+  }
+  .btn-confirm {
+    flex: 1; max-width: 140px;
+    height: 44px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #ffffff;
+    font-size: 18px; font-weight: 800;
+    letter-spacing: 4px;
+    border: 2px solid #5a1f08;
+    border-radius: 22px;
+    cursor: pointer; outline: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 4px rgba(0,0,0,0.3),
+      0 4px 8px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+  }
+  .btn-confirm:active { transform: scale(0.96); }
+  .btn-confirm::before {
+    content: ''; position: absolute;
+    top: 3px; left: 12px; right: 12px; height: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%);
+    border-radius: 18px 18px 6px 6px;
+    pointer-events: none;
+  }
+
+  /* ========== Toast ========== */
+  .toast {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffd700; padding: 12px 20px;
+    border-radius: 8px; font-size: 14px;
+    z-index: 200; display: none;
+    border: 1px solid #c8a017;
+  }
+  .toast.show { display: block; }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 背景：木色边框 + 毛毡 -->
+  <div class="wood-frame"></div>
+  <div class="felt-bg"></div>
+
+  <!-- 配置面板 -->
+  <div class="panel">
+
+    <!-- 关闭按钮 -->
+    <button class="btn-close" id="btnClose" aria-label="关闭">×</button>
+
+    <!-- 标题 -->
+    <div class="panel-title">
+      <div class="panel-title-text">创建人配置房间</div>
+    </div>
+
+    <!-- 头部信息：房间号 + 创建人 -->
+    <div class="header-info">
+      <div class="room-code">房间号：<b id="displayRoomCode">----</b></div>
+      <div class="creator">
+        <span class="creator-icon">骰</span>
+        <span class="creator-name" id="displayCreator">--</span>
+      </div>
+    </div>
+
+    <!-- 模式 -->
+    <div class="field-block">
+      <div class="field-label">模式：</div>
+      <div class="mode-buttons">
+        <button class="mode-btn active" data-mode="dice_poker">大话骰</button>
+        <button class="mode-btn" data-mode="twenty_one">21点</button>
+        <button class="mode-btn" data-mode="guess_size">猜大小</button>
+      </div>
+    </div>
+
+    <!-- 参与人数 -->
+    <div class="stepper-row">
+      <div class="stepper-label">参与人数：</div>
+      <div class="stepper-value">
+        <input type="number" class="stepper-input" id="inputMaxPlayers" min="2" max="20" value="4">
+        <button class="stepper-btn" data-step="min" data-target="inputMaxPlayers">-</button>
+        <button class="stepper-btn" data-step="add" data-target="inputMaxPlayers">+</button>
+        <span class="stepper-range">(2-20)</span>
+      </div>
+    </div>
+
+    <!-- 骰子数量 -->
+    <div class="stepper-row">
+      <div class="stepper-label">骰子数量：</div>
+      <div class="stepper-value">
+        <input type="number" class="stepper-input" id="inputDiceCount" min="3" max="6" value="5">
+        <button class="stepper-btn" data-step="min" data-target="inputDiceCount">-</button>
+        <button class="stepper-btn" data-step="add" data-target="inputDiceCount">+</button>
+        <span class="stepper-range">(3-6)</span>
+      </div>
+    </div>
+
+    <!-- 在线摇 / 当面摇 -->
+    <div class="play-mode-group">
+      <button class="play-mode-btn active" data-play="online">在线摇</button>
+      <button class="play-mode-btn" data-play="offline">当面摇</button>
+    </div>
+
+    <!-- 确定按钮 -->
+    <div class="panel-actions">
+      <button class="btn-confirm" id="btnConfirm">确定</button>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<script>
+  // ========== 工具 ==========
+  const $ = (sel) => document.querySelector(sel);
+  const toast = (msg, ms = 2000) => {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), ms);
+  };
+
+  // ========== 读取URL参数和localStorage ==========
+  const url = new URL(location.href);
+  const roomId = url.searchParams.get('room') || localStorage.getItem('langfu_roomId') || '';
+  const creator = localStorage.getItem('langfu_nickname') || '玩家';
+  const MY_USER_ID = localStorage.getItem('langfu_userId') || ('u_' + Math.random().toString(36).slice(2,10));
+
+  $('#displayRoomCode').textContent = roomId;
+  $('#displayCreator').textContent = creator;
+
+  // ========== 模式选择 ==========
+  let currentMode = 'dice_poker';
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+    });
+  });
+
+  // ========== 数字调整按钮（+/-） ==========
+  document.querySelectorAll('.stepper-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = $('#' + btn.dataset.target);
+      const min = parseInt(target.min, 10);
+      const max = parseInt(target.max, 10);
+      let v = parseInt(target.value, 10) || min;
+      if (btn.dataset.step === 'add') v = Math.min(v + 1, max);
+      else v = Math.max(v - 1, min);
+      target.value = v;
+    });
+  });
+
+  // ========== 输入框直接编辑校验 ==========
+  document.querySelectorAll('.stepper-input').forEach(input => {
+    input.addEventListener('input', () => {
+      const min = parseInt(input.min, 10);
+      const max = parseInt(input.max, 10);
+      let v = parseInt(input.value, 10);
+      if (isNaN(v)) v = min;
+      input.value = Math.max(min, Math.min(max, v));
+    });
+    input.addEventListener('blur', () => {
+      const min = parseInt(input.min, 10);
+      const max = parseInt(input.max, 10);
+      let v = parseInt(input.value, 10);
+      if (isNaN(v) || v < min) input.value = min;
+      if (v > max) input.value = max;
+    });
+  });
+
+  // ========== 游玩模式切换 ==========
+  let playMode = 'online';
+  document.querySelectorAll('.play-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.play-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      playMode = btn.dataset.play;
+    });
+  });
+
+  // ========== 关闭按钮 ==========
+  $('#btnClose').addEventListener('click', () => {
+    if (confirm('确定放弃创建房间并返回首页？')) {
+      window.location.href = '/';
+    }
+  });
+
+  // ========== 确定：调用创建房间API → 跳转到房间页 ==========
+  $('#btnConfirm').addEventListener('click', async () => {
+    const maxPlayers = parseInt($('#inputMaxPlayers').value, 10);
+    const diceCount = parseInt($('#inputDiceCount').value, 10);
+    if (maxPlayers < 2 || maxPlayers > 20) return toast('参与人数需在 2-20 之间');
+    if (diceCount < 3 || diceCount > 6) return toast('骰子数量需在 3-6 之间');
+
+    // 保存配置到localStorage（房间页用）
+    localStorage.setItem('langfu_gameMode', currentMode);
+    localStorage.setItem('langfu_maxPlayers', String(maxPlayers));
+    localStorage.setItem('langfu_diceCount', String(diceCount));
+    localStorage.setItem('langfu_playMode', playMode);
+
+    // 调用后端创建房间
+    try {
+      const res = await fetch('/room/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: MY_USER_ID,
+          nickname: creator,
+          roomId: roomId,
+          gameMode: currentMode
+        })
+      });
+      const data = await res.json();
+      if (data.roomId) {
+        // 暂存后端返回的 userId
+        if (data.userId) localStorage.setItem('langfu_userId', data.userId);
+        localStorage.setItem('langfu_roomId', data.roomId);
+        localStorage.setItem('langfu_isHost', '1');
+        // 跳转到房间页（暂用 lobby.html，下一步再做房间页）
+        window.location.href = '/lobby.html?room=' + data.roomId;
+      } else if (data.error) {
+        // 房间号已存在等情况
+        toast(data.error);
+      } else {
+        toast('创建失败');
+      }
+    } catch (e) {
+      toast('网络错误：' + (e.message || ''));
+    }
+  });
+
+</script>
+</body>
+</html>
