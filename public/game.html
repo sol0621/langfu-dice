@@ -404,6 +404,7 @@
   let soundEnabled = true;
   let isRolling = false;
   let isShowingResult = false; // 摇完后展示结果模式（静止、正对玩家）
+  let waitingForResult = false; // 动画已结束，等待服务端返回骰子结果
   let currentCallPoint = 1;
   let roomState = { players: [], roomStatus: 'idle', hostId: null };
 
@@ -658,8 +659,8 @@
   function animate() {
     animFrameId = requestAnimationFrame(animate);
 
-    // 微动效果（仅在未摇且非结果展示时）
-    if (!isRolling && !isShowingResult) {
+    // 只在空闲闲置时微动（不摇、不展示结果）
+    if (!isRolling && !isShowingResult && !waitingForResult) {
       diceGroup.rotation.y += 0.003;
       diceGroup.position.y = Math.sin(Date.now() * 0.001) * 0.05;
     }
@@ -670,6 +671,7 @@
   function startDiceRollAnimation(durationMs = 3000) {
     isRolling = true;
     isShowingResult = false;
+    waitingForResult = false;
     const startTime = Date.now();
 
     // 骰子弹跳动画
@@ -702,43 +704,31 @@
         diceGroup.rotation.y += 0.04;
         requestAnimationFrame(rollFrame);
       } else {
-        // 动画结束，保持旋转等待结果（会持续旋转直到收到 dice_result）
+        // 动画结束：完全停止，等待服务端返回结果
         isRolling = false;
-        continueSpinningUntilResult();
+        waitingForResult = true;
+
+        // 如果已经有结果（WS先返回），直接展示
+        if (myDiceValues.length > 0) {
+          finishRoll();
+        }
+        // 否则静等WS dice_result
       }
     }
 
     requestAnimationFrame(rollFrame);
   }
 
-  // 摇骰动画结束但结果未返回时，继续慢速旋转
-  let spinningUntilResultId = null;
-  function continueSpinningUntilResult() {
-    if (isShowingResult) return; // 结果已到，停止
-    if (myDiceValues.length > 0) {
-      // 结果已到，立即展示
-      finishRoll();
-      return;
-    }
-    diceMeshes.forEach(m => {
-      m.rotation.x += 0.06;
-      m.rotation.y += 0.08;
-    });
-    spinningUntilResultId = requestAnimationFrame(continueSpinningUntilResult);
-  }
-
   function finishRoll() {
     isRolling = false;
     isShowingResult = true;
-    if (spinningUntilResultId) {
-      cancelAnimationFrame(spinningUntilResultId);
-      spinningUntilResultId = null;
-    }
-    // 更新骰子面朝上（按服务端结果旋转至正对玩家）
+    waitingForResult = false;
+
+    // 更新骰子面正对玩家
     if (myDiceValues.length > 0) {
       updateDiceToValues(myDiceValues);
     }
-    // 排列成正对玩家
+    // 排列成正对玩家，回正整体
     layoutDiceResult();
   }
 
@@ -830,8 +820,10 @@
       case 'dice_result':
         myDiceValues = msg.data.diceValues || [];
         isRolled = true;
-        // 如果摇骰动画还没结束（isRolling=true），等动画结束会自动触发 finishRoll
-        // 如果已结束等待中，立即展示结果
+        // 三种情况：
+        // 1. 动画还在播（isRolling=true）→ rollFrame 结束后自动调用 finishRoll
+        // 2. 动画已结束在等待（waitingForResult=true）→ 立即调用 finishRoll
+        // 3. 已展示（isShowingResult=true）→ 已处理过，跳过
         if (!isRolling && !isShowingResult) {
           finishRoll();
         }
@@ -899,6 +891,7 @@
   }
 
   // ========== 开摇按钮 ==========
+  let rollSafetyTimer = null;
   btnRoll.addEventListener('click', () => {
     if (isRolled || isRolling) return;
 
@@ -919,6 +912,22 @@
     setTimeout(() => {
       sendWS({ type: 'roll_dice', data: {} });
     }, 3000);
+
+    // 安全兜底：8秒后如果还没收到结果，强制停止
+    clearTimeout(rollSafetyTimer);
+    rollSafetyTimer = setTimeout(() => {
+      if (!isShowingResult) {
+        console.warn('dice_result timeout, force stopping');
+        // 用随机值兜底
+        if (myDiceValues.length === 0) {
+          myDiceValues = Array.from({ length: 5 }, () => Math.ceil(Math.random() * 6));
+          isRolled = true;
+        }
+        finishRoll();
+        updateUI();
+        toast('网络延迟，骰子结果可能未同步');
+      }
+    }, 8000);
   });
 
   // ========== 叫骰逻辑 ==========
