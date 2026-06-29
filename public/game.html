@@ -164,7 +164,7 @@
   .dice-stage {
     position: relative;
     margin: 6px 18px;
-    height: 200px;
+    height: 300px;
     background: rgba(0,0,0,0.4);
     border: 1px solid #5a3a08;
     border-radius: 12px;
@@ -317,7 +317,7 @@
     .call-points { gap: 5px; }
     .call-point-btn { width: 34px; height: 34px; font-size: 14px; }
     .btn-roll { width: 170px; height: 46px; font-size: 18px; }
-    .dice-stage { height: 170px; }
+    .dice-stage { height: 240px; }
   }
 </style>
 </head>
@@ -513,8 +513,8 @@
 
   function createDiceGeometry() {
     // 带圆角的方块
-    const size = 0.65;
-    const radius = 0.08;
+    const size = 0.85;
+    const radius = 0.10;
     const detail = 2;
     return new THREE.BoxGeometry(size, size, size, detail, detail, detail);
   }
@@ -612,7 +612,7 @@
         }));
       });
 
-      const geo = new THREE.BoxGeometry(0.62, 0.62, 0.62);
+      const geo = new THREE.BoxGeometry(0.82, 0.82, 0.82);
       const mesh = new THREE.Mesh(geo, materials);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -754,12 +754,19 @@
   }
 
   function layoutDiceResult() {
-    // 结果展示：一排散开，居中面向玩家
+    // 结果展示：多行布局，每行最多3颗
     const count = diceMeshes.length;
-    const spacing = 0.78;
-    const startX = -((count - 1) * spacing) / 2;
+    const perRow = 3;
+    const spacingX = 1.0;
+    const spacingZ = 1.0;
+    const rows = Math.ceil(count / perRow);
+    const offsetY = ((rows - 1) * spacingZ) / 2;
     diceMeshes.forEach((m, i) => {
-      m.position.set(startX + i * spacing, 0.15, 0);
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const colsInRow = Math.min(perRow, count - row * perRow);
+      const startX = -((colsInRow - 1) * spacingX) / 2;
+      m.position.set(startX + col * spacingX, 0.15, offsetY - row * spacingZ);
     });
     // 整体回正
     diceGroup.rotation.set(0, 0, 0);
