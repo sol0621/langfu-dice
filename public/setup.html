@@ -527,8 +527,12 @@
         if (data.userId) localStorage.setItem('langfu_userId', data.userId);
         localStorage.setItem('langfu_roomId', data.roomId);
         localStorage.setItem('langfu_isHost', '1');
-        // 跳转到房间页（暂用 lobby.html，下一步再做房间页）
-        window.location.href = '/lobby.html?room=' + data.roomId;
+        // 跳转到对决页面
+        if (playMode === 'online') {
+          window.location.href = '/game.html?room=' + data.roomId;
+        } else {
+          window.location.href = '/lobby.html?room=' + data.roomId;
+        }
       } else if (data.error) {
         // 房间号已存在等情况
         toast(data.error);
