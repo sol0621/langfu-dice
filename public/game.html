@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>大话骰对决 - 郎府摇骰子</title>
+<style>
+  /* ========== 基础重置 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========== 根容器（H5基准：iPhone 12/13/14 = 390×844） ========== */
+  .app {
+    position: relative;
+    width: 100vw; height: 100vh;
+    max-width: 390px; max-height: 844px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* ========== 背景：木色边框 + 毛毡 ========== */
+  .wood-frame {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #3d2810 0%, #5a3d18 30%, #6b4a1f 60%, #3d2810 100%);
+    z-index: 1;
+  }
+  .wood-frame::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0px, transparent 18px,
+        rgba(0,0,0,0.15) 18px, rgba(0,0,0,0.15) 19px,
+        transparent 19px, transparent 35px,
+        rgba(255,200,100,0.05) 35px, rgba(255,200,100,0.05) 36px);
+  }
+  .felt-bg {
+    position: absolute; top: 14px; bottom: 14px; left: 14px; right: 14px;
+    background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
+    border-radius: 6px;
+    z-index: 2;
+  }
+  .felt-bg::before {
+    content: ''; position: absolute; inset: 0; opacity: 0.4;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(80,80,80,0.5) 0%, transparent 1%),
+      radial-gradient(circle at 70% 60%, rgba(60,60,60,0.4) 0%, transparent 1%),
+      radial-gradient(circle at 40% 80%, rgba(70,70,70,0.45) 0%, transparent 1%),
+      radial-gradient(circle at 85% 25%, rgba(55,55,55,0.4) 0%, transparent 1%);
+    background-size: 12px 12px, 14px 14px, 16px 16px, 13px 13px;
+    border-radius: 6px;
+  }
+
+  /* ========== 内容区 ========== */
+  .content {
+    position: relative; z-index: 5;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 14px;
+  }
+  .content::-webkit-scrollbar { display: none; }
+
+  /* ========== 第一楼层：头部标题 + 音效按钮 ========== */
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 10px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid rgba(200,160,23,0.4);
+  }
+  .header-title {
+    font-size: 22px; font-weight: 900;
+    background: linear-gradient(180deg,
+      #fffce0 0%, #fff5a0 20%, #ffe066 40%, #ffd23a 60%, #ffb820 80%, #e89a0a 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 1px 0 #b8740a)
+            drop-shadow(0 2px 1px rgba(0,0,0,0.6))
+            drop-shadow(0 0 12px rgba(255,220,80,0.5));
+    letter-spacing: 3px;
+  }
+  .btn-sound {
+    position: relative;
+    width: 36px; height: 36px;
+    background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #1a1a1a 100%);
+    border: 1.5px solid #5a3a08;
+    border-radius: 50%;
+    cursor: pointer; outline: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #ffd700;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .btn-sound:active { transform: scale(0.92); }
+  .btn-sound.active {
+    background: linear-gradient(180deg, #6a4a18 0%, #4a3010 50%, #2a1a08 100%);
+    border-color: #ffd700;
+    box-shadow: 0 0 0 1px #ffd700, 0 2px 8px rgba(255,180,40,0.4);
+  }
+
+  /* ========== 第二楼层：玩家列表 ========== */
+  .player-section {
+    margin: 10px 18px;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #5a3a08;
+    border-radius: 10px;
+  }
+  .player-section-title {
+    color: #ffd700;
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .player-section-title::before {
+    content: ''; width: 3px; height: 12px;
+    background: linear-gradient(180deg, #ffd970, #c8a017);
+    border-radius: 2px;
+  }
+  .player-list {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .player-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #5a3a08;
+    border-radius: 14px;
+  }
+  .player-badge .avatar {
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, #ffd970 0%, #c8a017 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #2a1a08; font-weight: 800;
+  }
+  .player-badge .pname {
+    color: #ffffff; font-size: 12px; font-weight: 600;
+  }
+  .player-badge .status {
+    font-size: 11px; font-weight: 700;
+    padding: 1px 6px; border-radius: 8px;
+  }
+  .player-badge .status.rolled {
+    background: rgba(0,200,0,0.2); color: #4caf50;
+    border: 1px solid #4caf50;
+  }
+  .player-badge .status.not-rolled {
+    background: rgba(255,150,0,0.2); color: #ff9500;
+    border: 1px solid #ff9500;
+  }
+  .player-badge.host .avatar {
+    box-shadow: 0 0 6px rgba(255,200,50,0.6);
+  }
+
+  /* ========== 第三楼层：3D骰子展示区 ========== */
+  .dice-stage {
+    position: relative;
+    margin: 6px 18px;
+    height: 200px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid #5a3a08;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .dice-stage canvas { display: block; }
+  .dice-stage-label {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    color: #999; font-size: 11px;
+    letter-spacing: 2px;
+    z-index: 6;
+  }
+
+  /* ========== 第四楼层：开摇按钮 ========== */
+  .roll-section {
+    display: flex; justify-content: center;
+    margin: 8px 18px;
+  }
+  .btn-roll {
+    position: relative;
+    width: 200px; height: 52px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 40%, #e54e0a 80%, #c03a00 100%);
+    color: #ffffff;
+    font-size: 22px; font-weight: 900;
+    letter-spacing: 6px;
+    border: 2.5px solid #5a1f08;
+    border-radius: 26px;
+    cursor: pointer; outline: none;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.35),
+      inset 0 -3px 6px rgba(0,0,0,0.3),
+      0 6px 16px rgba(0,0,0,0.6),
+      0 0 20px rgba(255,120,30,0.4);
+    text-shadow: 0 2px 3px rgba(0,0,0,0.5);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-roll:active { transform: scale(0.95); }
+  .btn-roll::before {
+    content: ''; position: absolute;
+    top: 4px; left: 12px; right: 12px; height: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%);
+    border-radius: 22px 22px 8px 8px;
+    pointer-events: none;
+  }
+  .btn-roll:disabled {
+    opacity: 0.5; cursor: not-allowed;
+    filter: grayscale(0.4);
+  }
+  .btn-roll.rolling {
+    animation: pulse 0.6s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), 0 6px 16px rgba(0,0,0,0.6), 0 0 20px rgba(255,120,30,0.4); }
+    50% { box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), 0 6px 16px rgba(0,0,0,0.6), 0 0 40px rgba(255,160,60,0.8); }
+  }
+  .roll-hint {
+    text-align: center; color: #888; font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* ========== 第五楼层：叫骰区 ========== */
+  .call-section {
+    margin: 8px 18px;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #5a3a08;
+    border-radius: 10px;
+  }
+  .call-label {
+    color: #ffd700;
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .call-label::before {
+    content: ''; width: 3px; height: 12px;
+    background: linear-gradient(180deg, #ffd970, #c8a017);
+    border-radius: 2px;
+  }
+  .call-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: nowrap;
+  }
+  .call-input {
+    width: 56px; height: 34px;
+    background: #0a0a0a;
+    border: 1px solid #5a3a08;
+    border-radius: 6px;
+    color: #ffd700; font-size: 16px; font-weight: 700;
+    text-align: center;
+    outline: none;
+    flex-shrink: 0;
+  }
+  .call-input:focus { border-color: #ffd700; }
+  .call-unit {
+    color: #ffffff; font-size: 14px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .call-stepper-btn {
+    width: 28px; height: 28px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #fff; font-size: 18px; font-weight: 900;
+    border: 1.5px solid #5a1f08;
+    border-radius: 50%;
+    cursor: pointer; outline: none;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; flex-shrink: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,0,0,0.4);
+  }
+  .call-stepper-btn:active { transform: scale(0.92); }
+  .call-points {
+    display: flex; gap: 8px; justify-content: center;
+    flex-wrap: nowrap;
+  }
+  .call-point-btn {
+    width: 38px; height: 38px;
+    background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #1a1a1a 100%);
+    color: #ffffff;
+    font-size: 16px; font-weight: 800;
+    border: 1.5px solid #5a3a08;
+    border-radius: 50%;
+    cursor: pointer; outline: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+  .call-point-btn:active { transform: scale(0.92); }
+  .call-point-btn.active {
+    background: linear-gradient(180deg, #6a4a18 0%, #4a3010 50%, #2a1a08 100%);
+    border-color: #ffd700;
+    color: #ffd700;
+    box-shadow: 0 0 0 1px #ffd700, 0 2px 8px rgba(255,180,40,0.5);
+  }
+
+  /* ========== Toast ========== */
+  .toast {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffd700; padding: 12px 20px;
+    border-radius: 8px; font-size: 14px;
+    z-index: 200; display: none;
+    border: 1px solid #c8a017;
+  }
+  .toast.show { display: block; }
+
+  /* 响应式调整 */
+  @media (max-width: 350px) {
+    .call-points { gap: 5px; }
+    .call-point-btn { width: 34px; height: 34px; font-size: 14px; }
+    .btn-roll { width: 170px; height: 46px; font-size: 18px; }
+    .dice-stage { height: 170px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 背景 -->
+  <div class="wood-frame"></div>
+  <div class="felt-bg"></div>
+
+  <!-- 主内容 -->
+  <div class="content">
+
+    <!-- 第一楼层：头部 -->
+    <div class="header">
+      <div class="header-title">郎府摇骰子</div>
+      <button class="btn-sound active" id="btnSound" title="开启音效">🔊</button>
+    </div>
+
+    <!-- 第二楼层：玩家列表 -->
+    <div class="player-section" id="playerSection">
+      <div class="player-section-title">已加入房间人</div>
+      <div class="player-list" id="playerList"></div>
+    </div>
+
+    <!-- 第三楼层：3D骰子展示 -->
+    <div class="dice-stage" id="diceStage">
+      <div class="dice-stage-label">在线摇</div>
+    </div>
+
+    <!-- 第四楼层：开摇按钮 -->
+    <div class="roll-section">
+      <button class="btn-roll" id="btnRoll">开摇</button>
+    </div>
+    <div class="roll-hint" id="rollHint">点击按钮开始摇骰子</div>
+
+    <!-- 第五楼层：叫骰区 -->
+    <div class="call-section" id="callSection">
+      <div class="call-label">叫骰</div>
+      <div class="call-row">
+        <input type="number" class="call-input" id="callCount" min="1" max="99" value="3" inputmode="numeric">
+        <span class="call-unit">个</span>
+        <button class="call-stepper-btn" id="callCountMinus">-</button>
+        <button class="call-stepper-btn" id="callCountPlus">+</button>
+      </div>
+      <div class="call-points" id="callPoints">
+        <button class="call-point-btn active" data-point="1">1</button>
+        <button class="call-point-btn" data-point="2">2</button>
+        <button class="call-point-btn" data-point="3">3</button>
+        <button class="call-point-btn" data-point="4">4</button>
+        <button class="call-point-btn" data-point="5">5</button>
+        <button class="call-point-btn" data-point="6">6</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<!-- Three.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+
+<script>
+  // ========== 工具 ==========
+  const $ = (sel) => document.querySelector(sel);
+  const toast = (msg, ms = 2000) => {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), ms);
+  };
+
+  // ========== 读取参数 ==========
+  const url = new URL(location.href);
+  const ROOM_ID = url.searchParams.get('room') || localStorage.getItem('langfu_roomId') || '';
+  const MY_NICKNAME = localStorage.getItem('langfu_nickname') || '玩家';
+  const MY_USER_ID = localStorage.getItem('langfu_userId') || ('u_' + Math.random().toString(36).slice(2, 10));
+  localStorage.setItem('langfu_userId', MY_USER_ID);
+
+  // ========== 状态 ==========
+  let myDiceValues = [];
+  let isRolled = false;
+  let soundEnabled = true;
+  let isRolling = false;
+  let currentCallPoint = 1;
+  let roomState = { players: [], roomStatus: 'idle', hostId: null };
+
+  // ========== 音效系统（Web Audio API） ==========
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playDiceShake(durationMs = 3000) {
+    if (!soundEnabled || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    const interval = 0.08; // 每80ms一个碰撞音
+    const count = Math.floor(durationMs / 1000 / interval);
+    for (let i = 0; i < count; i++) {
+      const t = now + i * interval;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(200 + Math.random() * 400, t);
+      osc.frequency.exponentialRampToValueAtTime(80 + Math.random() * 100, t + 0.06);
+      gain.gain.setValueAtTime(0.12 + Math.random() * 0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      osc.start(t); osc.stop(t + 0.08);
+    }
+  }
+
+  // ========== 音效按钮 ==========
+  const btnSound = $('#btnSound');
+  btnSound.addEventListener('click', () => {
+    initAudio();
+    soundEnabled = !soundEnabled;
+    btnSound.classList.toggle('active', soundEnabled);
+    btnSound.textContent = soundEnabled ? '🔊' : '🔇';
+  });
+
+  // ========== Three.js 3D 骰子系统 ==========
+  let scene, camera, renderer, diceGroup, diceMeshes = [];
+  let animFrameId = null;
+
+  function initThreeJS() {
+    const stage = $('#diceStage');
+    const w = stage.clientWidth;
+    const h = stage.clientHeight;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+    camera.position.set(0, 1.5, 8);
+    camera.lookAt(0, 0, 0);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    stage.appendChild(renderer.domElement);
+
+    // 环境光 + 点光源
+    const ambient = new THREE.AmbientLight(0x443322, 1.2);
+    scene.add(ambient);
+    const keyLight = new THREE.DirectionalLight(0xffeedd, 2.5);
+    keyLight.position.set(3, 5, 5);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(512, 512);
+    scene.add(keyLight);
+    const rimLight = new THREE.DirectionalLight(0xffcc88, 1.5);
+    rimLight.position.set(-2, 1, -2);
+    scene.add(rimLight);
+
+    // 平台底座
+    const platformGeo = new THREE.CylinderGeometry(2.2, 2.3, 0.15, 32);
+    const platformMat = new THREE.MeshStandardMaterial({
+      color: 0x3d2810,
+      roughness: 0.6,
+      metalness: 0.3
+    });
+    const platform = new THREE.Mesh(platformGeo, platformMat);
+    platform.position.y = -1.5;
+    platform.receiveShadow = true;
+    scene.add(platform);
+
+    // 聚光（参考设计稿金色光效）
+    const spotLight = new THREE.SpotLight(0xffd700, 3, 10, Math.PI / 6, 0.3, 0.5);
+    spotLight.position.set(0, 3, 3);
+    spotLight.castShadow = true;
+    scene.add(spotLight);
+
+    // 创建骰子组
+    diceGroup = new THREE.Group();
+    diceGroup.position.y = 0;
+    scene.add(diceGroup);
+
+    // 创建5颗骰子（大话骰默认5颗）
+    createDiceMeshes(5);
+
+    // 初始摆设：堆叠在平台上
+    layoutDiceIdle();
+
+    renderDiceFaces(); // 随机初始面
+    animate();
+  }
+
+  function createDiceGeometry() {
+    // 带圆角的方块
+    const size = 0.65;
+    const radius = 0.08;
+    const detail = 2;
+    return new THREE.BoxGeometry(size, size, size, detail, detail, detail);
+  }
+
+  function roundGeometry(geo, radius) {
+    const pos = geo.getAttribute('position');
+    const points = [];
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const len = Math.sqrt(x * x + y * y + z * z);
+      const factor = 1 - radius / Math.abs(len) * 0.5;
+      points.push(x * factor, y * factor, z * factor);
+    }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  // 骰子面纹理（用Canvas画点）
+  function createDiceFaceTexture(value) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    // 象牙白底色
+    const grad = ctx.createRadialGradient(64, 64, 10, 64, 64, 90);
+    grad.addColorStop(0, '#fffef5');
+    grad.addColorStop(0.7, '#f3edd8');
+    grad.addColorStop(1, '#d4c9a3');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    // 边框
+    ctx.strokeStyle = '#b8a878';
+    ctx.lineWidth = 3;
+    ctx.roundRect(6, 6, 116, 116, 10);
+    ctx.stroke();
+
+    if (value < 1 || value > 6) return new THREE.CanvasTexture(canvas);
+
+    // 骰点（红/金色）
+    const dotR = 12;
+    const positions = {
+      1: [[64, 64]],
+      2: [[32, 96], [96, 32]],
+      3: [[32, 96], [64, 64], [96, 32]],
+      4: [[32, 32], [96, 32], [32, 96], [96, 96]],
+      5: [[32, 32], [96, 32], [64, 64], [32, 96], [96, 96]],
+      6: [[32, 32], [96, 32], [32, 64], [96, 64], [32, 96], [96, 96]]
+    };
+
+    positions[value].forEach(([cx, cy], i) => {
+      const dotGrad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, dotR);
+      // 1和4点是红色，其余金色
+      if (value === 1 || value === 4) {
+        dotGrad.addColorStop(0, '#ff8a80');
+        dotGrad.addColorStop(0.6, '#c62828');
+        dotGrad.addColorStop(1, '#7f0000');
+      } else {
+        dotGrad.addColorStop(0, '#ffd970');
+        dotGrad.addColorStop(0.6, '#c8a017');
+        dotGrad.addColorStop(1, '#8b6914');
+      }
+      ctx.fillStyle = dotGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
+      ctx.fill();
+      // 高光
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath();
+      ctx.arc(cx - 2, cy - 2, dotR * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  function createDiceMeshes(count) {
+    // 清理旧骰子
+    diceMeshes.forEach(m => diceGroup.remove(m));
+    diceMeshes = [];
+    diceGroup.rotation.set(0, 0, 0);
+
+    // 材质数组（每面一张贴图）
+    for (let i = 0; i < count; i++) {
+      const materials = [];
+      // 顺序：右(+x), 左(-x), 上(+y), 下(-y), 前(+z), 后(-z)
+      // 标准骰子：对面和为7
+      const faceMap = [5, 2, 6, 1, 3, 4]; // +x:5, -x:2, +y:6, -y:1, +z:3, -z:4
+      faceMap.forEach(v => {
+        materials.push(new THREE.MeshStandardMaterial({
+          map: createDiceFaceTexture(v),
+          roughness: 0.35,
+          metalness: 0.05
+        }));
+      });
+
+      const geo = new THREE.BoxGeometry(0.62, 0.62, 0.62);
+      const mesh = new THREE.Mesh(geo, materials);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      diceMeshes.push(mesh);
+      diceGroup.add(mesh);
+    }
+  }
+
+  function layoutDiceIdle() {
+    // 静态布局：堆叠在平台上
+    const positions = [
+      { x: -0.6, y: 0, z: 0.4, rx: 0.2, ry: 0.5, rz: -0.3 },
+      { x: 0.4, y: 0, z: 0.2, rx: -0.3, ry: -0.4, rz: 0.2 },
+      { x: -0.2, y: 0, z: -0.6, rx: 0.5, ry: 0.6, rz: 0.1 },
+      { x: 0.7, y: 0.55, z: -0.3, rx: 0.1, ry: 0.8, rz: -0.4 },
+      { x: -0.5, y: 0.55, z: -0.2, rx: -0.6, ry: 0.3, rz: 0.5 }
+    ];
+    diceMeshes.forEach((m, i) => {
+      if (i < positions.length) {
+        m.position.set(positions[i].x, positions[i].y - 0.6, positions[i].z);
+        m.rotation.set(positions[i].rx, positions[i].ry, positions[i].rz);
+      }
+    });
+  }
+
+  function renderDiceFaces(values) {
+    // 如果没有指定值，随机
+    const vals = values || diceMeshes.map(() => Math.ceil(Math.random() * 6));
+    diceMeshes.forEach((m, i) => {
+      const faceMap = [5, 2, 6, 1, 3, 4];
+      const mats = m.material;
+      faceMap.forEach((_, fi) => {
+        // 用对应值更新贴图（如果已知道结果）
+        if (values) {
+          // 标准骰子：各面值对应关系 +x:5, -x:2, +y:6, -y:1, +z:3, -z:4
+          const faceVals = [5, 2, 6, 1, 3, 4];
+          mats[fi].map = createDiceFaceTexture(faceVals[fi]);
+          mats[fi].needsUpdate = true;
+        }
+      });
+    });
+  }
+
+  function animate() {
+    animFrameId = requestAnimationFrame(animate);
+
+    // 微动效果（静止时）
+    if (!isRolling) {
+      diceGroup.rotation.y += 0.003;
+      diceGroup.position.y = Math.sin(Date.now() * 0.001) * 0.05;
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  function startDiceRollAnimation(durationMs = 3000) {
+    isRolling = true;
+    const startTime = Date.now();
+
+    // 骰子弹跳动画
+    diceMeshes.forEach((m, i) => {
+      m._startPos = m.position.clone();
+      m._startRot = m.rotation.clone();
+      m._jumpPhase = i * 0.6;
+      m._jumpSpeed = 8 + Math.random() * 4;
+    });
+
+    function rollFrame() {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const progress = Math.min(elapsed / (durationMs / 1000), 1);
+
+      if (progress < 1) {
+        const intensity = 1 - progress; // 逐渐减弱
+
+        diceMeshes.forEach((m, i) => {
+          const phase = m._jumpPhase;
+          const y = Math.abs(Math.sin(elapsed * m._jumpSpeed + phase)) * 1.2 * intensity;
+          m.position.y = m._startPos.y + y;
+
+          // 快速旋转
+          m.rotation.x += 0.2 * intensity;
+          m.rotation.y += 0.25 * intensity;
+          m.rotation.z += 0.15 * intensity;
+        });
+
+        // 整体旋转
+        diceGroup.rotation.y += 0.04;
+        requestAnimationFrame(rollFrame);
+      } else {
+        // 动画结束，显示结果
+        finishRoll(durationMs);
+      }
+    }
+
+    requestAnimationFrame(rollFrame);
+  }
+
+  function finishRoll(durationMs) {
+    isRolling = false;
+    // 如果有骰子结果，更新面朝上
+    if (myDiceValues.length > 0) {
+      updateDiceToValues(myDiceValues);
+    }
+    // 恢复布局
+    setTimeout(() => layoutDiceResult(), 500);
+  }
+
+  function updateDiceToValues(values) {
+    // 让每颗骰子朝上的面显示对应值
+    diceMeshes.forEach((m, i) => {
+      if (i < values.length) {
+        const targetVal = values[i];
+        // 根据目标值旋转骰子（使对应面朝上 +y）
+        const rotations = {
+          1: [0, 0, 0],           // 底面朝上
+          2: [0, 0, Math.PI/2],   // -x面朝上
+          3: [Math.PI/2, 0, 0],   // +z面朝上
+          4: [-Math.PI/2, 0, 0],  // -z面朝上
+          5: [0, 0, -Math.PI/2],  // +x面朝上
+          6: [Math.PI, 0, 0]      // 顶面朝上
+        };
+        const [rx, ry, rz] = rotations[targetVal] || [0, 0, 0];
+        // 加随机微调
+        m.rotation.set(
+          rx + (Math.random() - 0.5) * 0.1,
+          ry + (Math.random() - 0.5) * 0.1,
+          rz + (Math.random() - 0.5) * 0.1
+        );
+      }
+    });
+  }
+
+  function layoutDiceResult() {
+    // 结果展示：一排散开
+    diceMeshes.forEach((m, i) => {
+      const offsetX = (i - 2) * 0.75;
+      m.position.set(offsetX, 0, 0);
+    });
+  }
+
+  // ========== WebSocket 连接 ==========
+  let ws = null;
+  function connectWS() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = protocol + '//' + location.host + '/?userId=' + encodeURIComponent(MY_USER_ID) + '&roomId=' + encodeURIComponent(ROOM_ID);
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('WS connected');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWSMessage(msg);
+      } catch (e) {
+        console.error('WS parse error:', e);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WS disconnected, reconnecting...');
+      setTimeout(connectWS, 2000);
+    };
+
+    ws.onerror = (e) => {
+      console.error('WS error:', e);
+    };
+  }
+
+  function sendWS(msg) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  }
+
+  function handleWSMessage(msg) {
+    switch (msg.type) {
+      case 'user_id':
+        break;
+
+      case 'room_update':
+        roomState = msg.data;
+        updatePlayerList();
+        updateUI();
+        break;
+
+      case 'roll_ack':
+        // 开摇确认（先不显示值，等动画结束服务端推送 dice_result）
+        break;
+
+      case 'dice_result':
+        myDiceValues = msg.data.diceValues || [];
+        isRolled = true;
+        updateUI();
+        break;
+
+      case 'call_dice_broadcast':
+        toast(msg.data.nickname + ' 叫了 ' + msg.data.count + '个' + msg.data.point);
+        break;
+
+      case 'error':
+        toast(msg.data.message || '出错了');
+        break;
+    }
+  }
+
+  // ========== 玩家列表渲染 ==========
+  function updatePlayerList() {
+    const list = $('#playerList');
+    const players = roomState.players || [];
+    if (players.length === 0) {
+      list.innerHTML = '<span style="color:#666;font-size:12px;">等待其他玩家加入...</span>';
+      return;
+    }
+    list.innerHTML = players.map(p => {
+      const isHost = p.userId === roomState.hostId;
+      const rolled = p.isRolled;
+      const statusClass = rolled ? 'rolled' : 'not-rolled';
+      const statusText = rolled ? '已摇' : '未摇';
+      const hostClass = isHost ? ' host' : '';
+      return '<div class="player-badge' + hostClass + '">' +
+        '<div class="avatar">' + (isHost ? '主' : '玩') + '</div>' +
+        '<span class="pname">' + escapeHtml(p.nickname) + '</span>' +
+        '<span class="status ' + statusClass + '">' + statusText + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ========== UI更新 ==========
+  const btnRoll = $('#btnRoll');
+  const rollHint = $('#rollHint');
+
+  function updateUI() {
+    if (isRolled) {
+      btnRoll.textContent = '已摇';
+      btnRoll.disabled = true;
+      rollHint.textContent = '等待其他玩家摇骰...';
+    } else {
+      btnRoll.textContent = '开摇';
+      btnRoll.disabled = isRolling;
+      rollHint.textContent = isRolling ? '摇动中...' : '点击按钮开始摇骰子';
+    }
+
+    if (isRolling) {
+      btnRoll.classList.add('rolling');
+    } else {
+      btnRoll.classList.remove('rolling');
+    }
+  }
+
+  // ========== 开摇按钮 ==========
+  btnRoll.addEventListener('click', () => {
+    if (isRolled || isRolling) return;
+
+    // 初始化音效（用户交互后才能启动）
+    initAudio();
+
+    // 开始动画
+    isRolling = true;
+    updateUI();
+
+    // 播放声音
+    playDiceShake(3000);
+
+    // 3D骰子动画
+    startDiceRollAnimation(3000);
+
+    // 3000ms后发送摇骰请求
+    setTimeout(() => {
+      sendWS({ type: 'roll_dice', data: {} });
+    }, 3000);
+  });
+
+  // ========== 叫骰逻辑 ==========
+  const callCountInput = $('#callCount');
+  let callPoint = 1;
+
+  // 点数选择
+  $('#callPoints').addEventListener('click', (e) => {
+    const btn = e.target.closest('.call-point-btn');
+    if (!btn) return;
+    document.querySelectorAll('.call-point-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    callPoint = parseInt(btn.dataset.point, 10);
+  });
+
+  // +/- 按钮
+  $('#callCountPlus').addEventListener('click', () => {
+    let v = parseInt(callCountInput.value, 10) || 0;
+    callCountInput.value = Math.min(v + 1, 99);
+    checkAutoCallSend();
+  });
+  $('#callCountMinus').addEventListener('click', () => {
+    let v = parseInt(callCountInput.value, 10) || 2;
+    callCountInput.value = Math.max(v - 1, 1);
+    checkAutoCallSend();
+  });
+
+  // 输入监听：当修改叫骰参数时自动发送
+  callCountInput.addEventListener('change', checkAutoCallSend);
+  callCountInput.addEventListener('blur', checkAutoCallSend);
+
+  function checkAutoCallSend() {
+    if (!isRolled) return; // 还没摇呢
+    const count = parseInt(callCountInput.value, 10);
+    if (isNaN(count) || count < 1) return;
+
+    // 调用后端叫骰
+    sendCallDice(count, callPoint);
+  }
+
+  function sendCallDice(count, point) {
+    sendWS({ type: 'call_dice', data: { count, point } });
+  }
+
+  // 直接点击点数也自动发送当前个数的叫骰
+  // (监听点数变化)
+  const callPointsObserver = new MutationObserver(() => {
+    if (isRolled) {
+      const count = parseInt(callCountInput.value, 10);
+      if (!isNaN(count) && count >= 1) {
+        sendCallDice(count, callPoint);
+      }
+    }
+  });
+
+  // ========== 初始化 ==========
+  function init() {
+    if (!ROOM_ID) {
+      toast('缺少房间号，返回首页');
+      setTimeout(() => { window.location.href = '/'; }, 1500);
+      return;
+    }
+
+    initThreeJS();
+    connectWS();
+
+    // 窗口大小调整
+    window.addEventListener('resize', () => {
+      const stage = $('#diceStage');
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      if (renderer) {
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+    });
+
+    // 页面关闭前清理
+    window.addEventListener('beforeunload', () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
