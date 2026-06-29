@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>当面摇 - 郎府摇骰子</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    position: relative;
+    width: 100vw; height: 100vh;
+    max-width: 390px; max-height: 844px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #000;
+  }
+  .wood-frame {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #3d2810 0%, #5a3d18 30%, #6b4a1f 60%, #3d2810 100%);
+    z-index: 1;
+  }
+  .felt-bg {
+    position: absolute; top: 20px; bottom: 20px; left: 20px; right: 20px;
+    background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
+    border-radius: 8px;
+    z-index: 2;
+  }
+  .content {
+    position: relative; z-index: 5;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 60px 24px;
+  }
+  .title {
+    color: #ffd700; font-size: 24px; font-weight: 800;
+    letter-spacing: 4px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    color: #c8a84e; font-size: 13px; font-weight: 600;
+    letter-spacing: 2px; margin-bottom: 40px;
+  }
+  .placeholder {
+    width: 100%; padding: 30px 20px;
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    border: 2px dashed #5a3a08;
+    border-radius: 12px;
+    color: #888; font-size: 14px; text-align: center;
+    line-height: 1.8;
+    margin-bottom: 40px;
+  }
+  .btn-back {
+    width: 160px; height: 44px;
+    background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #1a1a1a 100%);
+    color: #ffd700; font-size: 15px; font-weight: 700;
+    letter-spacing: 3px;
+    border: 1.5px solid #5a3a08;
+    border-radius: 22px;
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      0 2px 6px rgba(0,0,0,0.5);
+  }
+  .btn-back:active { transform: scale(0.96); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="wood-frame"></div>
+  <div class="felt-bg"></div>
+
+  <div class="content">
+    <div class="title">当面摇模式</div>
+    <div class="subtitle">纯本地 · 离线可用 · 不上传数据</div>
+
+    <div class="placeholder">
+      🚧 占位页面<br>
+      此模式无需创建房间，<br>
+      一台手机本地模拟多玩家骰子<br>
+      后续版本开发
+    </div>
+
+    <button class="btn-back" onclick="location.href='/'">返回首页</button>
+  </div>
+</div>
+</body>
+</html>
