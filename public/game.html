@@ -403,6 +403,7 @@
   let isRolled = false;
   let soundEnabled = true;
   let isRolling = false;
+  let isShowingResult = false; // 摇完后展示结果模式（静止、正对玩家）
   let currentCallPoint = 1;
   let roomState = { players: [], roomStatus: 'idle', hostId: null };
 
@@ -657,8 +658,8 @@
   function animate() {
     animFrameId = requestAnimationFrame(animate);
 
-    // 微动效果（静止时）
-    if (!isRolling) {
+    // 微动效果（仅在未摇且非结果展示时）
+    if (!isRolling && !isShowingResult) {
       diceGroup.rotation.y += 0.003;
       diceGroup.position.y = Math.sin(Date.now() * 0.001) * 0.05;
     }
@@ -668,6 +669,7 @@
 
   function startDiceRollAnimation(durationMs = 3000) {
     isRolling = true;
+    isShowingResult = false;
     const startTime = Date.now();
 
     // 骰子弹跳动画
@@ -700,55 +702,78 @@
         diceGroup.rotation.y += 0.04;
         requestAnimationFrame(rollFrame);
       } else {
-        // 动画结束，显示结果
-        finishRoll(durationMs);
+        // 动画结束，保持旋转等待结果（会持续旋转直到收到 dice_result）
+        isRolling = false;
+        continueSpinningUntilResult();
       }
     }
 
     requestAnimationFrame(rollFrame);
   }
 
-  function finishRoll(durationMs) {
+  // 摇骰动画结束但结果未返回时，继续慢速旋转
+  let spinningUntilResultId = null;
+  function continueSpinningUntilResult() {
+    if (isShowingResult) return; // 结果已到，停止
+    if (myDiceValues.length > 0) {
+      // 结果已到，立即展示
+      finishRoll();
+      return;
+    }
+    diceMeshes.forEach(m => {
+      m.rotation.x += 0.06;
+      m.rotation.y += 0.08;
+    });
+    spinningUntilResultId = requestAnimationFrame(continueSpinningUntilResult);
+  }
+
+  function finishRoll() {
     isRolling = false;
-    // 如果有骰子结果，更新面朝上
+    isShowingResult = true;
+    if (spinningUntilResultId) {
+      cancelAnimationFrame(spinningUntilResultId);
+      spinningUntilResultId = null;
+    }
+    // 更新骰子面朝上（按服务端结果旋转至正对玩家）
     if (myDiceValues.length > 0) {
       updateDiceToValues(myDiceValues);
     }
-    // 恢复布局
-    setTimeout(() => layoutDiceResult(), 500);
+    // 排列成正对玩家
+    layoutDiceResult();
   }
 
   function updateDiceToValues(values) {
-    // 让每颗骰子朝上的面显示对应值
+    // 每颗骰子的值面正对玩家（相机在-z方向）
+    // 材质数组顺序：[+x, -x, +y, -y, +z, -z] = [5, 2, 6, 1, 3, 4]
     diceMeshes.forEach((m, i) => {
       if (i < values.length) {
         const targetVal = values[i];
-        // 根据目标值旋转骰子（使对应面朝上 +y）
+        // 旋转使对应面朝向 -z（相机方向）
         const rotations = {
-          1: [0, 0, 0],           // 底面朝上
-          2: [0, 0, Math.PI/2],   // -x面朝上
-          3: [Math.PI/2, 0, 0],   // +z面朝上
-          4: [-Math.PI/2, 0, 0],  // -z面朝上
-          5: [0, 0, -Math.PI/2],  // +x面朝上
-          6: [Math.PI, 0, 0]      // 顶面朝上
+          1: [-Math.PI / 2, 0, 0],  // -y面(底部=1) 翻到 -z
+          2: [0, Math.PI / 2, 0],    // -x面(左=2) 转到 -z
+          3: [0, Math.PI, 0],        // +z面(前=3) 翻转到 -z
+          4: [0, 0, 0],              // -z面(后=4) 已正对相机
+          5: [0, -Math.PI / 2, 0],   // +x面(右=5) 转到 -z
+          6: [Math.PI / 2, 0, 0]     // +y面(顶=6) 翻到 -z
         };
         const [rx, ry, rz] = rotations[targetVal] || [0, 0, 0];
-        // 加随机微调
-        m.rotation.set(
-          rx + (Math.random() - 0.5) * 0.1,
-          ry + (Math.random() - 0.5) * 0.1,
-          rz + (Math.random() - 0.5) * 0.1
-        );
+        m.rotation.set(rx, ry, rz);
       }
     });
   }
 
   function layoutDiceResult() {
-    // 结果展示：一排散开
+    // 结果展示：一排散开，居中面向玩家
+    const count = diceMeshes.length;
+    const spacing = 0.78;
+    const startX = -((count - 1) * spacing) / 2;
     diceMeshes.forEach((m, i) => {
-      const offsetX = (i - 2) * 0.75;
-      m.position.set(offsetX, 0, 0);
+      m.position.set(startX + i * spacing, 0.15, 0);
     });
+    // 整体回正
+    diceGroup.rotation.set(0, 0, 0);
+    diceGroup.position.set(0, 0, 0);
   }
 
   // ========== WebSocket 连接 ==========
@@ -805,6 +830,11 @@
       case 'dice_result':
         myDiceValues = msg.data.diceValues || [];
         isRolled = true;
+        // 如果摇骰动画还没结束（isRolling=true），等动画结束会自动触发 finishRoll
+        // 如果已结束等待中，立即展示结果
+        if (!isRolling && !isShowingResult) {
+          finishRoll();
+        }
         updateUI();
         break;
 
