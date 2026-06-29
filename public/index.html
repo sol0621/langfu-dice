@@ -609,7 +609,7 @@
       if (data.code === 0) {
         localStorage.setItem('langfu_roomId', code);
         localStorage.setItem('langfu_isHost', '0');
-        window.location.href = '/lobby.html?room=' + code;
+        window.location.href = '/game.html?room=' + code;
       } else {
         toast(data.msg || '加入失败');
       }
