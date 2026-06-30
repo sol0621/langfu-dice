@@ -563,6 +563,11 @@
     waitingForResult = false;
     myDiceValues = [];
 
+    // 同步更新 roomState 中自己的 isRolled 为 false
+    const resetMe = roomState.players.find(p => p.userId === MY_USER_ID);
+    if (resetMe) resetMe.isRolled = false;
+    updatePlayerList();
+
     // 隐藏2D结果，恢复3D骰子到初始堆积状态
     hideDice2D();
     layoutDiceIdle();
@@ -1011,6 +1016,10 @@
       case 'dice_result':
         myDiceValues = msg.data.diceValues || [];
         isRolled = true;
+        // 同步更新 roomState.players 中自己的 isRolled，避免等 room_update 的延迟/不同步
+        const me = roomState.players.find(p => p.userId === MY_USER_ID);
+        if (me) me.isRolled = true;
+        updatePlayerList();
         // 三种情况：
         // 1. 动画还在播（isRolling=true）→ rollFrame 结束后自动调用 finishRoll
         // 2. 动画已结束在等待（waitingForResult=true）→ 立即调用 finishRoll
