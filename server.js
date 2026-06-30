@@ -356,6 +356,7 @@ function handleRollDice(ws) {
   if (room.roomStatus === 'idle') {
     room.roomStatus = 'rolling';
     resetCurrentCall();
+    broadcast(room.roomId, { type: 'call_reset', data: {} });
   }
 
   // 使用房间配置的骰子数量
@@ -414,6 +415,7 @@ function handleResetRound(ws) {
   room.publicDiceValues = null;
   room.publicTotal = null;
   room.publicResult = null;
+  broadcast(room.roomId, { type: 'call_reset', data: {} });
 
   room.players.forEach(p => {
     p.isAlive = true;
@@ -437,6 +439,8 @@ function handleStartGame(ws) {
   room.roomStatus = 'playing';
   room.currentRound++;
   room.winnerId = null;
+  resetCurrentCall();
+  broadcast(room.roomId, { type: 'call_reset', data: {} });
   room.publicDiceValues = null;
   room.publicTotal = null;
   room.publicResult = null;

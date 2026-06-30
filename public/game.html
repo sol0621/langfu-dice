@@ -195,6 +195,14 @@
     background: rgba(255,150,0,0.2); color: #ff9500;
     border: 1px solid #ff9500;
   }
+  .player-badge .call {
+    font-size: 11px; font-weight: 700;
+    padding: 1px 6px; border-radius: 8px;
+    background: rgba(255,215,0,0.15);
+    color: #ffd700;
+    border: 1px solid rgba(255,215,0,0.4);
+    white-space: nowrap;
+  }
   .player-badge.host .avatar {
     box-shadow: 0 0 6px rgba(255,200,50,0.6);
   }
@@ -379,6 +387,32 @@
     box-shadow: 0 0 0 1px #ffd700, 0 2px 8px rgba(255,180,40,0.5);
   }
 
+  /* 叫骰按钮 */
+  .btn-call {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px 0;
+    background: linear-gradient(180deg, #ffd970 0%, #c8a017 50%, #8b6914 100%);
+    color: #2a1a08;
+    font-size: 18px; font-weight: 900;
+    letter-spacing: 6px;
+    border: 2px solid #5a3a08;
+    border-radius: 24px;
+    cursor: pointer; outline: none;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 4px rgba(0,0,0,0.25),
+      0 4px 10px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-call:active { transform: scale(0.97); }
+  .btn-call:disabled {
+    opacity: 0.4; cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+
   /* ========== Toast ========== */
   .toast {
     position: fixed; top: 80px; left: 50%;
@@ -462,6 +496,7 @@
         <button class="call-point-btn" data-point="5">5</button>
         <button class="call-point-btn" data-point="6">6</button>
       </div>
+      <button class="btn-call" id="btnCall">叫骰</button>
     </div>
 
   </div>
@@ -554,7 +589,10 @@
 
     // 同步更新 roomState 中自己的 isRolled 为 false
     const resetMe = roomState.players.find(p => p.userId === MY_USER_ID);
-    if (resetMe) resetMe.isRolled = false;
+    if (resetMe) {
+      resetMe.isRolled = false;
+      resetMe.currentCall = null;
+    }
     updatePlayerList();
 
     // 隐藏2D结果，恢复3D骰子到初始堆积状态
@@ -1019,8 +1057,20 @@
         updateUI();
         break;
 
-      case 'call_dice_broadcast':
-        toast(msg.data.nickname + ' 叫了 ' + msg.data.count + '个' + msg.data.point);
+      case 'call_dice_broadcast': {
+        const { userId, nickname, count, point } = msg.data || {};
+        // toast 提示
+        toast(`${nickname || '玩家'} 叫了 ${count}个${point}`);
+        // 在对应玩家状态后记录本次叫骰
+        const caller = roomState.players.find(p => p.userId === userId);
+        if (caller) caller.currentCall = `${count}个${point}`;
+        updatePlayerList();
+        break;
+      }
+
+      case 'call_reset':
+        roomState.players.forEach(p => { p.currentCall = null; });
+        updatePlayerList();
         break;
 
       case 'error': {
@@ -1058,10 +1108,12 @@
       const statusClass = rolled ? 'rolled' : 'not-rolled';
       const statusText = rolled ? '已摇' : '未摇';
       const hostClass = isHost ? ' host' : '';
+      const callHtml = p.currentCall ? '<span class="call">' + escapeHtml(p.currentCall) + '</span>' : '';
       return '<div class="player-badge' + hostClass + '">' +
         '<div class="avatar">' + (isHost ? '主' : '玩') + '</div>' +
         '<span class="pname">' + escapeHtml(p.nickname) + '</span>' +
         '<span class="status ' + statusClass + '">' + statusText + '</span>' +
+        callHtml +
         '</div>';
     }).join('');
   }
@@ -1092,6 +1144,8 @@
     } else {
       btnRoll.classList.remove('rolling');
     }
+
+    updateCallButton();
   }
 
   // ========== 开摇按钮 ==========
@@ -1137,8 +1191,9 @@
   // ========== 叫骰逻辑 ==========
   const callCountInput = $('#callCount');
   let callPoint = 1;
+  const btnCall = $('#btnCall');
 
-  // 点数选择
+  // 点数选择（仅切换样式，不发送）
   $('#callPoints').addEventListener('click', (e) => {
     const btn = e.target.closest('.call-point-btn');
     if (!btn) return;
@@ -1147,45 +1202,40 @@
     callPoint = parseInt(btn.dataset.point, 10);
   });
 
-  // +/- 按钮
+  // +/- 按钮（仅修改数量，不发送）
   $('#callCountPlus').addEventListener('click', () => {
     let v = parseInt(callCountInput.value, 10) || 0;
     callCountInput.value = Math.min(v + 1, 99);
-    checkAutoCallSend();
   });
   $('#callCountMinus').addEventListener('click', () => {
     let v = parseInt(callCountInput.value, 10) || 2;
     callCountInput.value = Math.max(v - 1, 1);
-    checkAutoCallSend();
   });
 
-  // 输入监听：当修改叫骰参数时自动发送
-  callCountInput.addEventListener('change', checkAutoCallSend);
-  callCountInput.addEventListener('blur', checkAutoCallSend);
-
-  function checkAutoCallSend() {
-    if (!isRolled) return; // 还没摇呢
+  // 叫骰按钮：点击后发送
+  btnCall.addEventListener('click', () => {
+    if (!isRolled) {
+      toast('请先摇骰子');
+      return;
+    }
     const count = parseInt(callCountInput.value, 10);
-    if (isNaN(count) || count < 1) return;
-
-    // 调用后端叫骰
+    if (isNaN(count) || count < 1) {
+      toast('叫骰数量不合法');
+      return;
+    }
     sendCallDice(count, callPoint);
-  }
+  });
 
   function sendCallDice(count, point) {
     sendWS({ type: 'call_dice', data: { count, point } });
   }
 
-  // 直接点击点数也自动发送当前个数的叫骰
-  // (监听点数变化)
-  const callPointsObserver = new MutationObserver(() => {
-    if (isRolled) {
-      const count = parseInt(callCountInput.value, 10);
-      if (!isNaN(count) && count >= 1) {
-        sendCallDice(count, callPoint);
-      }
+  // 更新叫骰按钮可用状态
+  function updateCallButton() {
+    if (btnCall) {
+      btnCall.disabled = !isRolled;
     }
-  });
+  }
 
   // ========== 初始化 ==========
   function init() {
@@ -1197,6 +1247,7 @@
 
     initThreeJS();
     connectWS();
+    updateCallButton(); // 初始化叫骰按钮状态
 
     // 显示房间号
     const roomBadge = $('#roomIdBadge');
