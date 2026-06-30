@@ -500,54 +500,32 @@
   let currentCallPoint = 1;
   let roomState = { players: [], roomStatus: 'idle', hostId: null };
 
-  // ========== 音效系统（Web Audio API） ==========
-  let audioCtx = null;
+  // ========== 音效系统（真实摇骰子录音） ==========
+  let diceAudio = null;
+
   function initAudio() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!diceAudio) {
+      diceAudio = new Audio('sounds/shake-and-roll-dice.mp3');
+      diceAudio.preload = 'auto';
     }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
   }
 
   function playDiceShake(durationMs = 3000) {
-    if (!soundEnabled || !audioCtx) return;
-    const now = audioCtx.currentTime;
-
-    // 模拟骰子在盅里碰撞的真实声音：短促噪音脉冲 + 随机频率碰撞
-    const interval = 0.045; // ~45ms 一次碰撞，更密集
-    const totalHits = Math.floor(durationMs / 1000 / interval);
-
-    for (let i = 0; i < totalHits; i++) {
-      const t = now + i * interval;
-      // 强度随时间递减（模拟摇动减速）
-      const intensity = 1 - (i / totalHits) * 0.6;
-
-      // 方法1：白噪声冲击模拟碰撞
-      const bufferSize = Math.floor(audioCtx.sampleRate * 0.04);
-      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let j = 0; j < bufferSize; j++) {
-        data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufferSize * 0.2));
-      }
-      const noiseSrc = audioCtx.createBufferSource();
-      noiseSrc.buffer = noiseBuffer;
-      const noiseGain = audioCtx.createGain();
-      noiseSrc.connect(noiseGain); noiseGain.connect(audioCtx.destination);
-      noiseGain.gain.setValueAtTime(0.08 * intensity, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-      noiseSrc.start(t); noiseSrc.stop(t + 0.04);
-
-      // 方法2：低频撞击音模拟骰子撞击桌面/盅壁
-      const osc = audioCtx.createOscillator();
-      const oscGain = audioCtx.createGain();
-      osc.connect(oscGain); oscGain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      const baseFreq = 180 + Math.random() * 500;
-      osc.frequency.setValueAtTime(baseFreq, t);
-      osc.frequency.exponentialRampToValueAtTime(50 + Math.random() * 80, t + 0.03);
-      oscGain.gain.setValueAtTime(0.06 * intensity, t);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-      osc.start(t); osc.stop(t + 0.04);
+    if (!soundEnabled || !diceAudio) return;
+    try {
+      // 停止上一次播放（如果有）
+      diceAudio.pause();
+      diceAudio.currentTime = 0;
+      diceAudio.play().catch(() => {});
+      // 摇动结束时淡出停止
+      setTimeout(() => {
+        if (diceAudio && !diceAudio.paused) {
+          diceAudio.pause();
+          diceAudio.currentTime = 0;
+        }
+      }, durationMs);
+    } catch (e) {
+      // 浏览器自动播放策略限制，静默忽略
     }
   }
 
