@@ -343,13 +343,16 @@
 
   /* ========== Toast ========== */
   .toast {
-    position: fixed; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.85);
-    color: #ffd700; padding: 12px 20px;
+    position: fixed; top: 80px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.88);
+    color: #ffd700; padding: 10px 18px;
     border-radius: 8px; font-size: 14px;
-    z-index: 200; display: none;
+    z-index: 9999; display: none;
     border: 1px solid #c8a017;
+    max-width: 90vw;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    pointer-events: none;
   }
   .toast.show { display: block; }
 
@@ -939,9 +942,24 @@
         toast(msg.data.nickname + ' 叫了 ' + msg.data.count + '个' + msg.data.point);
         break;
 
-      case 'error':
-        toast(msg.data.message || '出错了');
+      case 'error': {
+        const rawMsg = msg.data.message || '出错了';
+        // 后端错误码翻译成中文
+        const errorMap = {
+          'NOT_ROLLED': '请先摇骰子',
+          'WRONG_MODE': '当前游戏模式不支持此操作',
+          'INVALID_CALL': '叫骰数量或点数不合法',
+          'NOT_IN_ROOM': '你不在房间中',
+          'NOT_HOST': '只有房主可以操作',
+          'GAME_NOT_STARTED': '游戏尚未开始',
+          'GAME_ENDED': '游戏已结束',
+          'INVALID_DICE': '骰子数不合法',
+          'ALREADY_ROLLED': '你已经摇过了'
+        };
+        const friendlyMsg = errorMap[rawMsg] || rawMsg;
+        toast(friendlyMsg);
         break;
+      }
     }
   }
 
