@@ -106,7 +106,9 @@ function buildRoomUpdate(room) {
       // 猜大小：公共骰子是公开数据
       publicDiceValues: room.publicDiceValues,
       publicTotal: room.publicTotal,
-      publicResult: room.publicResult
+      publicResult: room.publicResult,
+      callOrder: [...room.callOrder],
+      currentCallerId: getCurrentCallerId(room)
     }
   };
 }
@@ -205,6 +207,8 @@ function handleHttpCreateRoom(data, res) {
     publicDiceValues: null,
     publicTotal: null,
     publicResult: null,
+    callOrder: [userId],        // 叫骰轮流顺序（加入顺序）
+    currentCallerIndex: 0,
     createdAt: Date.now()
   };
 
@@ -231,6 +235,7 @@ function handleHttpJoinRoom(data, res) {
     isAlive: true, isStopped: false, isBusted: false, isRolled: false,
     diceValues: [], total: 0, disconnected: false
   });
+  room.callOrder.push(userId);
 
   // 广播更新给已在线的玩家
   broadcast(roomId, buildRoomUpdate(room));
@@ -317,10 +322,49 @@ function removePlayerFromRoom(room, userId) {
   const idx = room.players.findIndex(p => p.userId === userId);
   if (idx !== -1) room.players.splice(idx, 1);
   connMap.delete(userId);
+  // 从叫骰顺序中移除
+  const orderIdx = room.callOrder.indexOf(userId);
+  if (orderIdx !== -1) {
+    room.callOrder.splice(orderIdx, 1);
+    // 如果移除的是当前叫骰者之前的人，index需要调整
+    if (orderIdx <= room.currentCallerIndex && room.currentCallerIndex > 0) {
+      room.currentCallerIndex--;
+    }
+    // 如果移除后列表空了，重置
+    if (room.callOrder.length === 0) room.currentCallerIndex = 0;
+    else room.currentCallerIndex = room.currentCallerIndex % room.callOrder.length;
+  }
   // 如果房主离开，转移给第一个玩家
   if (room.hostId === userId && room.players.length > 0) {
     room.hostId = room.players[0].userId;
   }
+}
+
+// ==================== 叫骰轮流制 ====================
+function getCurrentCallerId(room) {
+  if (!room.callOrder || room.callOrder.length === 0) return null;
+  return room.callOrder[room.currentCallerIndex % room.callOrder.length];
+}
+
+function advanceTurn(room) {
+  if (!room.callOrder || room.callOrder.length === 0) return;
+  room.currentCallerIndex = (room.currentCallerIndex + 1) % room.callOrder.length;
+  broadcastTurn(room);
+}
+
+function resetTurn(room) {
+  room.currentCallerIndex = 0;
+  broadcastTurn(room);
+}
+
+function broadcastTurn(room) {
+  broadcast(room.roomId, {
+    type: 'turn_update',
+    data: {
+      currentCallerId: getCurrentCallerId(room),
+      callOrder: [...room.callOrder]
+    }
+  });
 }
 
 // ==================== 消息路由 ====================
@@ -337,6 +381,7 @@ function handleMessage(ws, msg) {
       case 'next_round':    handleNextRound(ws); break;
       case 'roll_dice':     handleRollDice(ws); break;
       case 'call_dice':     handleCallDice(ws, data); break;
+      case 'challenge_player': handleChallengePlayer(ws, data); break;
       case 'reset_round':   handleResetRound(ws); break;
       default: send(ws, { type: 'error', data: { message: `未知消息类型: ${type}` } });
     }
@@ -402,6 +447,33 @@ function handleCallDice(ws, data) {
       point
     }
   });
+
+  // 叫骰后轮转到下一个人
+  advanceTurn(room);
+}
+
+// ==================== 开骰（指定玩家） ====================
+function handleChallengePlayer(ws, data) {
+  const { room, player } = getRoomPlayer(ws);
+  if (room.gameMode !== DICE_POKER) throw new Error('WRONG_MODE');
+  if (!player.isRolled) throw new Error('NOT_ROLLED');
+
+  const targetId = data.targetUserId;
+  const target = room.players.find(p => p.userId === targetId);
+  if (!target) throw new Error('PLAYER_NOT_FOUND');
+  if (!target.isRolled) throw new Error('TARGET_NOT_ROLLED');
+
+  // 广播被开玩家的真实骰子
+  broadcast(room.roomId, {
+    type: 'challenge_player_result',
+    data: {
+      challengerId: player.userId,
+      challengerNickname: player.nickname,
+      targetId: target.userId,
+      targetNickname: target.nickname,
+      diceValues: [...target.diceValues]
+    }
+  });
 }
 
 // ==================== 重置本局 ====================
@@ -411,6 +483,7 @@ function handleResetRound(ws) {
 
   room.roomStatus = 'idle';
   resetCurrentCall();
+  resetTurn(room); // 重置叫骰轮流
   room.winnerId = null;
   room.publicDiceValues = null;
   room.publicTotal = null;
@@ -440,6 +513,7 @@ function handleStartGame(ws) {
   room.currentRound++;
   room.winnerId = null;
   resetCurrentCall();
+  resetTurn(room); // 初始化叫骰轮流顺序
   broadcast(room.roomId, { type: 'call_reset', data: {} });
   room.publicDiceValues = null;
   room.publicTotal = null;

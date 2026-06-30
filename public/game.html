@@ -413,6 +413,142 @@
     filter: grayscale(0.5);
   }
 
+  /* 开按钮 */
+  .btn-open {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px 0;
+    background: linear-gradient(180deg, #ff5e5e 0%, #d42a2a 50%, #8b0000 100%);
+    color: #fff;
+    font-size: 18px; font-weight: 900;
+    letter-spacing: 4px;
+    border: 2px solid #5a0808;
+    border-radius: 24px;
+    cursor: pointer; outline: none;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.25),
+      inset 0 -2px 4px rgba(0,0,0,0.3),
+      0 4px 10px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-open:active { transform: scale(0.97); }
+  .btn-open:disabled {
+    opacity: 0.4; cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+
+  /* 模态面板 */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 10000;
+    justify-content: center; align-items: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    width: 280px;
+    background: linear-gradient(180deg, #2a1a08 0%, #1a0a04 100%);
+    border: 1.5px solid #c8a017;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+  }
+  .modal-title {
+    color: #ffd700;
+    font-size: 16px; font-weight: 700;
+    text-align: center;
+    margin-bottom: 14px;
+    letter-spacing: 2px;
+  }
+  .modal-list {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .modal-player-btn {
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #5a3a08;
+    border-radius: 10px;
+    color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; outline: none;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .modal-player-btn:hover, .modal-player-btn:active {
+    border-color: #ffd700;
+    background: rgba(200,160,23,0.15);
+  }
+  .modal-cancel {
+    display: block; width: 100%;
+    padding: 10px 0;
+    background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #1a1a1a 100%);
+    color: #ccc; font-size: 14px; font-weight: 700;
+    border: 1px solid #555;
+    border-radius: 20px;
+    cursor: pointer; outline: none;
+  }
+
+  /* 开骰结果横幅 */
+  .banner-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 10001;
+    justify-content: center; align-items: center;
+  }
+  .banner-overlay.show { display: flex; }
+  .banner-box {
+    width: 320px;
+    max-width: 90vw;
+    background: linear-gradient(180deg, #2a1a08 0%, #1a0a04 100%);
+    border: 2px solid #ffd700;
+    border-radius: 16px;
+    padding: 24px 16px;
+    box-shadow: 0 0 30px rgba(255,180,40,0.3), 0 8px 30px rgba(0,0,0,0.7);
+    text-align: center;
+  }
+  .banner-title {
+    color: #ffd700;
+    font-size: 18px; font-weight: 900;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .banner-dice {
+    display: flex; justify-content: center; gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .banner-dice .dice-2d-card {
+    margin: 0;
+  }
+  .banner-close {
+    padding: 10px 36px;
+    background: linear-gradient(180deg, #ffd970 0%, #c8a017 50%, #8b6914 100%);
+    color: #2a1a08;
+    font-size: 15px; font-weight: 700;
+    border: 1.5px solid #5a3a08;
+    border-radius: 20px;
+    cursor: pointer; outline: none;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.3), 0 3px 8px rgba(0,0,0,0.5);
+  }
+  .banner-close:active { transform: scale(0.95); }
+
+  /* 叫骰区标题 + 轮次提示 */
+  .call-turn-hint {
+    font-size: 12px; color: #ffd700;
+    margin-left: auto; font-weight: 600;
+  }
+  .call-turn-hint.my-turn {
+    animation: blink 0.8s infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
   /* ========== Toast ========== */
   .toast {
     position: fixed; top: 80px; left: 50%;
@@ -481,7 +617,7 @@
 
     <!-- 第五楼层：叫骰区 -->
     <div class="call-section" id="callSection">
-      <div class="call-label">叫骰</div>
+      <div class="call-label">叫骰<span class="call-turn-hint"></span></div>
       <div class="call-row">
         <input type="number" class="call-input" id="callCount" min="1" max="99" value="3" inputmode="numeric">
         <span class="call-unit">个</span>
@@ -497,12 +633,31 @@
         <button class="call-point-btn" data-point="6">6</button>
       </div>
       <button class="btn-call" id="btnCall">叫骰</button>
+      <button class="btn-open" id="btnOpen">开</button>
     </div>
 
   </div>
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
+
+  <!-- 选择开谁（模态面板） -->
+  <div class="modal-overlay" id="challengeModal">
+    <div class="modal-box">
+      <div class="modal-title">选择要开的玩家</div>
+      <div class="modal-list" id="challengePlayerList"></div>
+      <button class="modal-cancel" id="challengeCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 开骰结果横幅 -->
+  <div class="banner-overlay" id="challengeBanner">
+    <div class="banner-box">
+      <div class="banner-title" id="bannerTitle"></div>
+      <div class="banner-dice" id="bannerDice"></div>
+      <button class="banner-close" id="bannerClose">关闭</button>
+    </div>
+  </div>
 
 </div>
 
@@ -533,6 +688,7 @@
   let isShowingResult = false; // 摇完后展示结果模式（静止、正对玩家）
   let waitingForResult = false; // 动画已结束，等待服务端返回骰子结果
   let currentCallPoint = 1;
+  let currentTurnUserId = null; // 当前轮到谁叫骰
   let roomState = { players: [], roomStatus: 'idle', hostId: null };
 
   // ========== 音效系统（真实摇骰子录音） ==========
@@ -1032,6 +1188,10 @@
 
       case 'room_update':
         roomState = msg.data;
+        // 同步轮次信息（room_update 也携带 currentCallerId）
+        if (msg.data.currentCallerId !== undefined) {
+          currentTurnUserId = msg.data.currentCallerId;
+        }
         updatePlayerList();
         updateUI();
         break;
@@ -1070,8 +1230,23 @@
 
       case 'call_reset':
         roomState.players.forEach(p => { p.currentCall = null; });
+        currentTurnUserId = null;
         updatePlayerList();
+        updateUI();
         break;
+
+      case 'turn_update':
+        currentTurnUserId = msg.data.currentCallerId;
+        updatePlayerList();
+        updateUI();
+        break;
+
+      case 'challenge_player_result': {
+        const result = msg.data;
+        // 横幅展示被开人的骰子
+        showChallengeBanner(result.targetNickname, result.diceValues);
+        break;
+      }
 
       case 'error': {
         const rawMsg = msg.data.message || '出错了';
@@ -1109,9 +1284,11 @@
       const statusText = rolled ? '已摇' : '未摇';
       const hostClass = isHost ? ' host' : '';
       const callHtml = p.currentCall ? '<span class="call">' + escapeHtml(p.currentCall) + '</span>' : '';
+      const isTurn = currentTurnUserId === p.userId;
+      const turnMark = isTurn ? ' <span style="color:#ffd700;font-size:11px;">🎙️</span>' : '';
       return '<div class="player-badge' + hostClass + '">' +
         '<div class="avatar">' + (isHost ? '主' : '玩') + '</div>' +
-        '<span class="pname">' + escapeHtml(p.nickname) + '</span>' +
+        '<span class="pname">' + escapeHtml(p.nickname) + turnMark + '</span>' +
         '<span class="status ' + statusClass + '">' + statusText + '</span>' +
         callHtml +
         '</div>';
@@ -1146,9 +1323,8 @@
     }
 
     updateCallButton();
+    updateCallTurnHint();
   }
-
-  // ========== 开摇按钮 ==========
   let rollSafetyTimer = null;
   btnRoll.addEventListener('click', () => {
     if (isRolled || isRolling) return;
@@ -1230,12 +1406,123 @@
     sendWS({ type: 'call_dice', data: { count, point } });
   }
 
-  // 更新叫骰按钮可用状态
+  // 更新叫骰/开按钮可用状态（加入轮流制判断）
+  const btnOpen = $('#btnOpen');
   function updateCallButton() {
-    if (btnCall) {
-      btnCall.disabled = !isRolled;
+    if (!btnCall || !btnOpen) return;
+    const isMyTurn = currentTurnUserId === MY_USER_ID;
+    const canCall = isRolled && isMyTurn;
+    btnCall.disabled = !canCall;
+    btnOpen.disabled = !canCall;
+  }
+
+  // 更新叫骰区标题的轮次提示
+  function updateCallTurnHint() {
+    const label = document.querySelector('.call-label .call-turn-hint');
+    if (!label) return;
+    if (!currentTurnUserId) {
+      label.textContent = '';
+      label.classList.remove('my-turn');
+      return;
+    }
+    const isMyTurn = currentTurnUserId === MY_USER_ID;
+    const caller = roomState.players.find(p => p.userId === currentTurnUserId);
+    const name = caller ? caller.nickname : '?';
+    label.textContent = '轮到：' + name;
+    if (isMyTurn) {
+      label.classList.add('my-turn');
+    } else {
+      label.classList.remove('my-turn');
     }
   }
+
+  // ========== 开骰逻辑 ==========
+  // 开按钮点击 → 弹出选择面板
+  btnOpen.addEventListener('click', () => {
+    if (btnOpen.disabled) return;
+    // 收集其他已摇的玩家
+    const targets = roomState.players.filter(p =>
+      p.userId !== MY_USER_ID && p.isRolled
+    );
+    if (targets.length === 0) {
+      toast('没有可开的玩家');
+      return;
+    }
+    showChallengeModal(targets);
+  });
+
+  function showChallengeModal(targets) {
+    const list = $('#challengePlayerList');
+    list.innerHTML = targets.map(p =>
+      '<button class="modal-player-btn" data-uid="' + p.userId + '">' +
+      escapeHtml(p.nickname) +
+      '</button>'
+    ).join('');
+
+    // 绑定点击事件
+    list.querySelectorAll('.modal-player-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const uid = btn.dataset.uid;
+        sendWS({ type: 'challenge_player', data: { targetUserId: uid } });
+        hideChallengeModal();
+        toast('已发送开骰请求');
+      });
+    });
+
+    $('#challengeModal').classList.add('show');
+  }
+
+  function hideChallengeModal() {
+    $('#challengeModal').classList.remove('show');
+  }
+
+  $('#challengeCancel').addEventListener('click', hideChallengeModal);
+  // 点击遮罩关闭
+  $('#challengeModal').addEventListener('click', (e) => {
+    if (e.target === $('#challengeModal')) hideChallengeModal();
+  });
+
+  // ========== 开骰结果横幅 ==========
+  function showChallengeBanner(nickname, diceValues) {
+    $('#bannerTitle').textContent = nickname + ' 的真实骰子';
+    const diceContainer = $('#bannerDice');
+    diceContainer.innerHTML = '';
+
+    // 复用2D骰子的点数布局逻辑
+    const dotPositions = {
+      1: [5], 2: [3, 7], 3: [3, 5, 7],
+      4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 4, 7, 3, 6, 9]
+    };
+    const isRedVal = (v) => v === 1 || v === 4;
+
+    diceValues.forEach(val => {
+      const card = document.createElement('div');
+      card.className = 'dice-2d-card';
+      const positions = dotPositions[val] || [5];
+      for (let i = 1; i <= 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'dice-2d-dot';
+        if (!positions.includes(i)) {
+          cell.style.visibility = 'hidden';
+        } else if (isRedVal(val)) {
+          cell.classList.add('red');
+        }
+        card.appendChild(cell);
+      }
+      diceContainer.appendChild(card);
+    });
+
+    $('#challengeBanner').classList.add('show');
+  }
+
+  function hideChallengeBanner() {
+    $('#challengeBanner').classList.remove('show');
+  }
+
+  $('#bannerClose').addEventListener('click', hideChallengeBanner);
+  $('#challengeBanner').addEventListener('click', (e) => {
+    if (e.target === $('#challengeBanner')) hideChallengeBanner();
+  });
 
   // ========== 初始化 ==========
   function init() {
@@ -1247,7 +1534,8 @@
 
     initThreeJS();
     connectWS();
-    updateCallButton(); // 初始化叫骰按钮状态
+    updateCallButton(); // 初始化叫骰/开按钮状态
+    updateCallTurnHint(); // 初始化轮次提示
 
     // 显示房间号
     const roomBadge = $('#roomIdBadge');
