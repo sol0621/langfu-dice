@@ -752,11 +752,11 @@
   }
 
   function layoutDiceIdle() {
-    // 静态布局：多行堆放，支持任意骰子数量
+    // 初始状态：多行分散排列，每颗骰子清晰可见
     const count = diceMeshes.length;
     const perRow = Math.min(3, count);
-    const spacingX = 0.60;
-    const spacingZ = 0.65;
+    const spacingX = 1.25;   // 骰子宽1.0，留足够间隙
+    const spacingZ = 1.30;   // 行距也拉开
     const rows = Math.ceil(count / perRow);
     const offsetZ = ((rows - 1) * spacingZ) / 2;
     diceMeshes.forEach((m, i) => {
@@ -764,8 +764,7 @@
       const col = i % perRow;
       const colsInRow = Math.min(perRow, count - row * perRow);
       const startX = -((colsInRow - 1) * spacingX) / 2;
-      const yOffset = row * 0.12; // 每行稍微抬高
-      m.position.set(startX + col * spacingX, -0.35 + yOffset, offsetZ - row * spacingZ);
+      m.position.set(startX + col * spacingX, 0.5, offsetZ - row * spacingZ);
       // 随机初始旋转
       m.rotation.set(Math.random() * 0.5, Math.random() * 0.8, Math.random() * 0.3);
     });
