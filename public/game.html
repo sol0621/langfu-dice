@@ -738,21 +738,24 @@
   }
 
   function updateDiceToValues(values) {
-    // 每颗骰子的值面正对玩家（相机在-z方向）
+    // 每颗骰子的值面正对玩家（相机方向），略微仰角提升易读性
     // 材质数组顺序：[+x, -x, +y, -y, +z, -z] = [5, 2, 6, 1, 3, 4]
+    const tiltUp = 0.35; // 仰角~20°，让骰面朝上对准手机用户
     diceMeshes.forEach((m, i) => {
-      const targetVal = i < values.length ? values[i] : 1; // 默认1点
-      // 旋转使对应面朝向 -z（相机方向）
-      const rotations = {
-        1: [-Math.PI / 2, 0, 0],  // -y面(底部=1) 翻到 -z
-        2: [0, Math.PI / 2, 0],    // -x面(左=2) 转到 -z
-        3: [0, Math.PI, 0],        // +z面(前=3) 翻转到 -z
-        4: [0, 0, 0],              // -z面(后=4) 已正对相机
-        5: [0, -Math.PI / 2, 0],   // +x面(右=5) 转到 -z
-        6: [Math.PI / 2, 0, 0]     // +y面(顶=6) 翻到 -z
-      };
-      const [rx, ry, rz] = rotations[targetVal] || [0, 0, 0];
+      const targetVal = i < values.length ? values[i] : 1;
+      // 旋转使值面朝向 -z（相机方向），再略微仰角
+      let rx = 0, ry = 0, rz = 0;
+      switch (targetVal) {
+        case 1: rx = -Math.PI/2 + tiltUp; break; // -y面 → 翻到 -z + 仰角
+        case 2: ry = Math.PI/2; rx = tiltUp; break; // -x面 → 转到 -z + 仰角
+        case 3: ry = Math.PI; rx = tiltUp; break;   // +z面 → 翻转到 -z + 仰角
+        case 4: rx = tiltUp; break;                  // -z面 + 仰角
+        case 5: ry = -Math.PI/2; rx = tiltUp; break; // +x面 → 转到 -z + 仰角
+        case 6: rx = Math.PI/2 + tiltUp; break;       // +y面 → 翻到 -z + 仰角
+      }
       m.rotation.set(rx, ry, rz);
+      // 轻微随机侧倾凸显3D效果
+      m.rotation.z += (Math.random() - 0.5) * 0.12;
     });
   }
 
