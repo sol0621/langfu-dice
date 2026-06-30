@@ -179,6 +179,46 @@
     z-index: 6;
   }
 
+  /* ========== 2D骰子结果展示 ========== */
+  .dice-2d-container {
+    display: none;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    justify-content: center; align-items: center; align-content: center;
+    flex-wrap: wrap; gap: 12px 16px;
+    padding: 20px 16px;
+    z-index: 10;
+    background: rgba(0,0,0,0.3);
+  }
+  .dice-2d-container.show { display: flex; }
+  .dice-2d-card {
+    width: 78px; height: 78px;
+    background: linear-gradient(145deg, #fffef5 0%, #f5f0dd 30%, #e8e0c0 70%, #ddd5b0 100%);
+    border: 2.5px solid #c4b080;
+    border-radius: 12px;
+    box-shadow:
+      0 4px 14px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.7);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 8px;
+    position: relative;
+  }
+  .dice-2d-dot {
+    margin: auto;
+  }
+  .dice-2d-dot::before {
+    content: '';
+    display: block;
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffe8a0 0%, #d4a000 50%, #8b6914 100%);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  }
+  .dice-2d-dot.red::before {
+    background: radial-gradient(circle at 35% 35%, #ff8a80 0%, #c62828 50%, #7f0000 100%);
+  }
+
   /* ========== 第四楼层：开摇按钮 ========== */
   .roll-section {
     display: flex; justify-content: center;
@@ -346,6 +386,7 @@
 
     <!-- 第三楼层：3D骰子展示 -->
     <div class="dice-stage" id="diceStage">
+      <div class="dice-2d-container" id="dice2D"></div>
       <div class="dice-stage-label">在线摇</div>
     </div>
 
@@ -677,6 +718,7 @@
     isRolling = true;
     isShowingResult = false;
     waitingForResult = false;
+    hideDice2D(); // 切换回3D摇动
     const startTime = Date.now();
 
     // 骰子弹跳动画
@@ -729,10 +771,8 @@
     isShowingResult = true;
     waitingForResult = false;
 
-    // 更新骰子面正对玩家
-    if (myDiceValues.length > 0) {
-      updateDiceToValues(myDiceValues);
-    }
+    // 切换到2D展示（精确复现点数，无透视角度偏差）
+    showDice2D(myDiceValues);
     // 排列成正对玩家，回正整体
     layoutDiceResult();
   }
@@ -777,6 +817,58 @@
     // 整体回正
     diceGroup.rotation.set(0, 0, 0);
     diceGroup.position.set(0, 0, 0);
+  }
+
+  // ========== 2D骰子面展示（结果精确可控） ==========
+  function showDice2D(values) {
+    // 隐藏3D canvas
+    const canvas = document.querySelector('#diceStage canvas');
+    if (canvas) canvas.style.display = 'none';
+
+    const container = $('#dice2D');
+    container.innerHTML = '';
+
+    if (!values || values.length === 0) return;
+
+    // 点数对应的网格位置（3×3布局，索引1-9）
+    const dotPositions = {
+      1: [5],
+      2: [3, 7],
+      3: [3, 5, 7],
+      4: [1, 3, 7, 9],
+      5: [1, 3, 5, 7, 9],
+      6: [1, 4, 7, 3, 6, 9]
+    };
+
+    // 红色点（值1和4），其余金色
+    const isRed = (val) => val === 1 || val === 4;
+
+    values.forEach((val) => {
+      const card = document.createElement('div');
+      card.className = 'dice-2d-card';
+
+      const positions = dotPositions[val] || [5];
+      for (let i = 1; i <= 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'dice-2d-dot';
+        if (!positions.includes(i)) {
+          cell.style.visibility = 'hidden';
+        } else if (isRed(val)) {
+          cell.classList.add('red');
+        }
+        card.appendChild(cell);
+      }
+
+      container.appendChild(card);
+    });
+
+    container.classList.add('show');
+  }
+
+  function hideDice2D() {
+    const canvas = document.querySelector('#diceStage canvas');
+    if (canvas) canvas.style.display = 'block';
+    $('#dice2D').classList.remove('show');
   }
 
   // ========== WebSocket 连接 ==========
