@@ -457,9 +457,9 @@
     const h = stage.clientHeight;
 
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    camera.position.set(0, 1.0, 6);
-    camera.lookAt(0, 0, 0);
+    camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
+    camera.position.set(0, 2.0, 5);
+    camera.lookAt(0, 0.5, 0);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(w, h);
@@ -481,7 +481,7 @@
     scene.add(rimLight);
 
     // 平台底座
-    const platformGeo = new THREE.CylinderGeometry(2.2, 2.3, 0.15, 32);
+    const platformGeo = new THREE.CylinderGeometry(3.0, 3.2, 0.15, 32);
     const platformMat = new THREE.MeshStandardMaterial({
       color: 0x3d2810,
       roughness: 0.6,
@@ -624,19 +624,22 @@
   }
 
   function layoutDiceIdle() {
-    // 静态布局：堆叠在平台上
-    const positions = [
-      { x: -0.6, y: 0, z: 0.4, rx: 0.2, ry: 0.5, rz: -0.3 },
-      { x: 0.4, y: 0, z: 0.2, rx: -0.3, ry: -0.4, rz: 0.2 },
-      { x: -0.2, y: 0, z: -0.6, rx: 0.5, ry: 0.6, rz: 0.1 },
-      { x: 0.7, y: 0.55, z: -0.3, rx: 0.1, ry: 0.8, rz: -0.4 },
-      { x: -0.5, y: 0.55, z: -0.2, rx: -0.6, ry: 0.3, rz: 0.5 }
-    ];
+    // 静态布局：多行堆放，支持任意骰子数量
+    const count = diceMeshes.length;
+    const perRow = Math.min(3, count);
+    const spacingX = 0.70;
+    const spacingZ = 0.70;
+    const rows = Math.ceil(count / perRow);
+    const offsetZ = ((rows - 1) * spacingZ) / 2;
     diceMeshes.forEach((m, i) => {
-      if (i < positions.length) {
-        m.position.set(positions[i].x, positions[i].y - 0.6, positions[i].z);
-        m.rotation.set(positions[i].rx, positions[i].ry, positions[i].rz);
-      }
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const colsInRow = Math.min(perRow, count - row * perRow);
+      const startX = -((colsInRow - 1) * spacingX) / 2;
+      const yOffset = row * 0.15; // 每行稍微抬高
+      m.position.set(startX + col * spacingX, -0.35 + yOffset, offsetZ - row * spacingZ);
+      // 随机初始旋转
+      m.rotation.set(Math.random() * 0.5, Math.random() * 0.8, Math.random() * 0.3);
     });
   }
 
@@ -738,37 +741,39 @@
     // 每颗骰子的值面正对玩家（相机在-z方向）
     // 材质数组顺序：[+x, -x, +y, -y, +z, -z] = [5, 2, 6, 1, 3, 4]
     diceMeshes.forEach((m, i) => {
-      if (i < values.length) {
-        const targetVal = values[i];
-        // 旋转使对应面朝向 -z（相机方向）
-        const rotations = {
-          1: [-Math.PI / 2, 0, 0],  // -y面(底部=1) 翻到 -z
-          2: [0, Math.PI / 2, 0],    // -x面(左=2) 转到 -z
-          3: [0, Math.PI, 0],        // +z面(前=3) 翻转到 -z
-          4: [0, 0, 0],              // -z面(后=4) 已正对相机
-          5: [0, -Math.PI / 2, 0],   // +x面(右=5) 转到 -z
-          6: [Math.PI / 2, 0, 0]     // +y面(顶=6) 翻到 -z
-        };
-        const [rx, ry, rz] = rotations[targetVal] || [0, 0, 0];
-        m.rotation.set(rx, ry, rz);
-      }
+      const targetVal = i < values.length ? values[i] : 1; // 默认1点
+      // 旋转使对应面朝向 -z（相机方向）
+      const rotations = {
+        1: [-Math.PI / 2, 0, 0],  // -y面(底部=1) 翻到 -z
+        2: [0, Math.PI / 2, 0],    // -x面(左=2) 转到 -z
+        3: [0, Math.PI, 0],        // +z面(前=3) 翻转到 -z
+        4: [0, 0, 0],              // -z面(后=4) 已正对相机
+        5: [0, -Math.PI / 2, 0],   // +x面(右=5) 转到 -z
+        6: [Math.PI / 2, 0, 0]     // +y面(顶=6) 翻到 -z
+      };
+      const [rx, ry, rz] = rotations[targetVal] || [0, 0, 0];
+      m.rotation.set(rx, ry, rz);
     });
   }
 
   function layoutDiceResult() {
-    // 结果展示：多行布局，每行最多3颗
+    // 结果展示：多行布局，每行最多3颗，间距加大确保清晰可见
     const count = diceMeshes.length;
-    const perRow = 3;
-    const spacingX = 1.0;
-    const spacingZ = 1.0;
+    const perRow = count <= 3 ? count : 3;
+    const spacingX = 1.2;
+    const spacingZ = 1.4;
     const rows = Math.ceil(count / perRow);
-    const offsetY = ((rows - 1) * spacingZ) / 2;
+    const offsetZ = ((rows - 1) * spacingZ) / 2;
     diceMeshes.forEach((m, i) => {
       const row = Math.floor(i / perRow);
       const col = i % perRow;
       const colsInRow = Math.min(perRow, count - row * perRow);
       const startX = -((colsInRow - 1) * spacingX) / 2;
-      m.position.set(startX + col * spacingX, 0.15, offsetY - row * spacingZ);
+      m.position.set(startX + col * spacingX, 0.15, offsetZ - row * spacingZ);
+      // 清除动画残留旋转
+      if (!m.rotation._setByUpdate) {
+        // rotation已经由updateDiceToValues设置了
+      }
     });
     // 整体回正
     diceGroup.rotation.set(0, 0, 0);
