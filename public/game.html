@@ -147,6 +147,17 @@
     margin-bottom: 8px;
     display: flex; align-items: center; gap: 6px;
   }
+  .room-id-badge {
+    margin-left: auto;
+    padding: 3px 10px;
+    background: rgba(200,160,23,0.15);
+    border: 1px solid rgba(200,160,23,0.4);
+    border-radius: 12px;
+    color: #ffd970;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
   .player-section-title::before {
     content: ''; width: 3px; height: 12px;
     background: linear-gradient(180deg, #ffd970, #c8a017);
@@ -418,7 +429,7 @@
 
     <!-- 第二楼层：玩家列表 -->
     <div class="player-section" id="playerSection">
-      <div class="player-section-title">已加入房间人</div>
+      <div class="player-section-title">已加入房间人<span class="room-id-badge" id="roomIdBadge">房间：--</span></div>
       <div class="player-list" id="playerList"></div>
     </div>
 
@@ -1208,6 +1219,10 @@
 
     initThreeJS();
     connectWS();
+
+    // 显示房间号
+    const roomBadge = $('#roomIdBadge');
+    if (roomBadge) roomBadge.textContent = '房间：' + ROOM_ID;
 
     // 窗口大小调整
     window.addEventListener('resize', () => {
