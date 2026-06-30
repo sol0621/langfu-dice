@@ -665,22 +665,19 @@
   }
 
   function layoutDiceIdle() {
-    // 静态布局：多行堆放，支持任意骰子数量
+    // 骰子堆积在一起（紧密簇拥），支持任意数量
     const count = diceMeshes.length;
-    const perRow = Math.min(3, count);
-    const spacingX = 0.60;
-    const spacingZ = 0.65;
-    const rows = Math.ceil(count / perRow);
-    const offsetZ = ((rows - 1) * spacingZ) / 2;
+    const baseY = -0.35;
     diceMeshes.forEach((m, i) => {
-      const row = Math.floor(i / perRow);
-      const col = i % perRow;
-      const colsInRow = Math.min(perRow, count - row * perRow);
-      const startX = -((colsInRow - 1) * spacingX) / 2;
-      const yOffset = row * 0.12; // 每行稍微抬高
-      m.position.set(startX + col * spacingX, -0.35 + yOffset, offsetZ - row * spacingZ);
+      // 紧密堆积：XY小幅随机分散，Z轴向紧密
+      const xOff = (Math.random() - 0.5) * 0.35;
+      const zOff = (Math.random() - 0.5) * 0.30;
+      // 上层骰子叠在下层上方
+      const stackedY = Math.floor(i / 3) * 1.05;
+      const yOff = (Math.random() - 0.5) * 0.08;
+      m.position.set(xOff, baseY + stackedY + yOff, zOff);
       // 随机初始旋转
-      m.rotation.set(Math.random() * 0.5, Math.random() * 0.8, Math.random() * 0.3);
+      m.rotation.set(Math.random() * 0.6, Math.random() * 1.0, Math.random() * 0.4);
     });
   }
 
@@ -721,12 +718,12 @@
     hideDice2D(); // 切换回3D摇动
     const startTime = Date.now();
 
-    // 骰子弹跳动画
+    // 骰子弹跳动画——大幅弹跳
     diceMeshes.forEach((m, i) => {
       m._startPos = m.position.clone();
       m._startRot = m.rotation.clone();
-      m._jumpPhase = i * 0.6;
-      m._jumpSpeed = 8 + Math.random() * 4;
+      m._jumpPhase = i * 0.4;
+      m._jumpSpeed = 10 + Math.random() * 5;
     });
 
     function rollFrame() {
@@ -738,17 +735,17 @@
 
         diceMeshes.forEach((m, i) => {
           const phase = m._jumpPhase;
-          const y = Math.abs(Math.sin(elapsed * m._jumpSpeed + phase)) * 1.2 * intensity;
+          const y = Math.abs(Math.sin(elapsed * m._jumpSpeed + phase)) * 2.8 * intensity;
           m.position.y = m._startPos.y + y;
 
-          // 快速旋转
-          m.rotation.x += 0.2 * intensity;
-          m.rotation.y += 0.25 * intensity;
-          m.rotation.z += 0.15 * intensity;
+          // 大幅度快速旋转
+          m.rotation.x += 0.35 * intensity;
+          m.rotation.y += 0.40 * intensity;
+          m.rotation.z += 0.28 * intensity;
         });
 
-        // 整体旋转
-        diceGroup.rotation.y += 0.04;
+        // 整体旋转幅度加大
+        diceGroup.rotation.y += 0.06;
         requestAnimationFrame(rollFrame);
       } else {
         // 动画结束：完全停止，等待服务端返回结果
