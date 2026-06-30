@@ -67,17 +67,27 @@
   }
   .content::-webkit-scrollbar { display: none; }
 
-  /* ========== 第一楼层：头部标题 + 音效按钮 ========== */
+  /* ========== 第一楼层：头部 [返回][重置] | 标题 | [开启音效] ========== */
   .header {
     position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px 10px;
-    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center;
+    padding: 10px 12px 8px;
+    background: rgba(0,0,0,0.88);
     backdrop-filter: blur(6px);
     border-bottom: 1px solid rgba(200,160,23,0.4);
   }
+  .header-left {
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+    min-width: 112px;
+  }
+  .header-center {
+    flex: 1; text-align: center;
+    min-width: 0;
+  }
   .header-title {
-    font-size: 22px; font-weight: 900;
+    display: inline-block;
+    font-size: 20px; font-weight: 900;
     background: linear-gradient(180deg,
       #fffce0 0%, #fff5a0 20%, #ffe066 40%, #ffd23a 60%, #ffb820 80%, #e89a0a 100%);
     -webkit-background-clip: text; background-clip: text;
@@ -85,24 +95,41 @@
     filter: drop-shadow(0 1px 0 #b8740a)
             drop-shadow(0 2px 1px rgba(0,0,0,0.6))
             drop-shadow(0 0 12px rgba(255,220,80,0.5));
-    letter-spacing: 3px;
+    letter-spacing: 2px;
   }
+  .header-right {
+    flex-shrink: 0;
+    min-width: 60px;
+    display: flex; justify-content: flex-end;
+  }
+  /* 头部小型按钮（返回/重置） */
+  .btn-header-sm {
+    padding: 5px 10px;
+    background: linear-gradient(180deg, #4a4a4a 0%, #2a2a2a 50%, #1a1a1a 100%);
+    color: #ccc; font-size: 12px; font-weight: 700;
+    border: 1px solid #555;
+    border-radius: 14px; cursor: pointer; outline: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: all 0.15s;
+  }
+  .btn-header-sm:active { transform: scale(0.93); background: #3a3a3a; }
+  /* 音效按钮 */
   .btn-sound {
-    position: relative;
-    width: 36px; height: 36px;
+    padding: 5px 12px;
     background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #1a1a1a 100%);
-    border: 1.5px solid #5a3a08;
-    border-radius: 50%;
-    cursor: pointer; outline: none;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; color: #ffd700;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    color: #999; font-size: 12px; font-weight: 700;
+    border: 1px solid #555;
+    border-radius: 14px; cursor: pointer; outline: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: all 0.15s;
+    white-space: nowrap;
   }
-  .btn-sound:active { transform: scale(0.92); }
-  .btn-sound.active {
+  .btn-sound:active { transform: scale(0.93); }
+  .btn-sound.on {
     background: linear-gradient(180deg, #6a4a18 0%, #4a3010 50%, #2a1a08 100%);
     border-color: #ffd700;
-    box-shadow: 0 0 0 1px #ffd700, 0 2px 8px rgba(255,180,40,0.4);
+    color: #ffd700;
+    box-shadow: 0 0 0 1px #ffd700, 0 2px 6px rgba(255,180,40,0.4);
   }
 
   /* ========== 第二楼层：玩家列表 ========== */
@@ -377,8 +404,16 @@
 
     <!-- 第一楼层：头部 -->
     <div class="header">
-      <div class="header-title">郎府摇骰子</div>
-      <button class="btn-sound active" id="btnSound" title="开启音效">🔊</button>
+      <div class="header-left">
+        <button class="btn-header-sm" id="btnBack">返回</button>
+        <button class="btn-header-sm" id="btnReset">重置</button>
+      </div>
+      <div class="header-center">
+        <span class="header-title">郎府摇骰子</span>
+      </div>
+      <div class="header-right">
+        <button class="btn-sound on" id="btnSound">音效已开</button>
+      </div>
     </div>
 
     <!-- 第二楼层：玩家列表 -->
@@ -466,19 +501,42 @@
   function playDiceShake(durationMs = 3000) {
     if (!soundEnabled || !audioCtx) return;
     const now = audioCtx.currentTime;
-    const interval = 0.08; // 每80ms一个碰撞音
-    const count = Math.floor(durationMs / 1000 / interval);
-    for (let i = 0; i < count; i++) {
+
+    // 模拟骰子在盅里碰撞的真实声音：短促噪音脉冲 + 随机频率碰撞
+    const interval = 0.045; // ~45ms 一次碰撞，更密集
+    const totalHits = Math.floor(durationMs / 1000 / interval);
+
+    for (let i = 0; i < totalHits; i++) {
       const t = now + i * interval;
+      // 强度随时间递减（模拟摇动减速）
+      const intensity = 1 - (i / totalHits) * 0.6;
+
+      // 方法1：白噪声冲击模拟碰撞
+      const bufferSize = Math.floor(audioCtx.sampleRate * 0.04);
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let j = 0; j < bufferSize; j++) {
+        data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufferSize * 0.2));
+      }
+      const noiseSrc = audioCtx.createBufferSource();
+      noiseSrc.buffer = noiseBuffer;
+      const noiseGain = audioCtx.createGain();
+      noiseSrc.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+      noiseGain.gain.setValueAtTime(0.08 * intensity, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      noiseSrc.start(t); noiseSrc.stop(t + 0.04);
+
+      // 方法2：低频撞击音模拟骰子撞击桌面/盅壁
       const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(200 + Math.random() * 400, t);
-      osc.frequency.exponentialRampToValueAtTime(80 + Math.random() * 100, t + 0.06);
-      gain.gain.setValueAtTime(0.12 + Math.random() * 0.08, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-      osc.start(t); osc.stop(t + 0.08);
+      const oscGain = audioCtx.createGain();
+      osc.connect(oscGain); oscGain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      const baseFreq = 180 + Math.random() * 500;
+      osc.frequency.setValueAtTime(baseFreq, t);
+      osc.frequency.exponentialRampToValueAtTime(50 + Math.random() * 80, t + 0.03);
+      oscGain.gain.setValueAtTime(0.06 * intensity, t);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      osc.start(t); osc.stop(t + 0.04);
     }
   }
 
@@ -487,8 +545,34 @@
   btnSound.addEventListener('click', () => {
     initAudio();
     soundEnabled = !soundEnabled;
-    btnSound.classList.toggle('active', soundEnabled);
-    btnSound.textContent = soundEnabled ? '🔊' : '🔇';
+    btnSound.classList.toggle('on', soundEnabled);
+    btnSound.textContent = soundEnabled ? '音效已开' : '开启音效';
+  });
+
+  // ========== 返回按钮 ==========
+  $('#btnBack').addEventListener('click', () => {
+    window.location.href = 'setup.html';
+  });
+
+  // ========== 重置按钮 ==========
+  $('#btnReset').addEventListener('click', () => {
+    // 重置本地状态，让【开摇】按钮恢复可点击
+    isRolled = false;
+    isRolling = false;
+    isShowingResult = false;
+    waitingForResult = false;
+    myDiceValues = [];
+
+    // 隐藏2D结果，恢复3D骰子到初始堆积状态
+    hideDice2D();
+    layoutDiceIdle();
+    diceMeshes.forEach(m => {
+      m.rotation.set(Math.random() * 0.5, Math.random() * 0.8, Math.random() * 0.3);
+    });
+
+    // 更新UI
+    updateUI();
+    toast('已重置，可以重新摇骰子');
   });
 
   // ========== Three.js 3D 骰子系统 ==========
