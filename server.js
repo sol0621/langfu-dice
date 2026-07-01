@@ -463,7 +463,25 @@ function handleChallengePlayer(ws, data) {
   if (!target) throw new Error('PLAYER_NOT_FOUND');
   if (!target.isRolled) throw new Error('TARGET_NOT_ROLLED');
 
-  // 广播被开玩家的真实骰子
+  // 计算百搭（1点万能牌）
+  const wildcardCount = target.diceValues.filter(v => v === 1).length;
+  // 各点数实际计数（含百搭，1点自身不算百搭加成）
+  const pointCounts = {};
+  for (let p = 1; p <= 6; p++) {
+    pointCounts[p] = target.diceValues.filter(v => v === p).length + (p === 1 ? 0 : wildcardCount);
+  }
+
+  // 校验：被开的人是不是当前叫骰者，是的话验证叫骰是否成立
+  let callValid = null, calledCount = null, calledPoint = null, actualCount = null;
+  if (currentCall && currentCall.userId === targetId) {
+    calledCount = currentCall.count;
+    calledPoint = currentCall.point;
+    // 1点为百搭，可算作任意点数
+    actualCount = target.diceValues.filter(v => v === calledPoint || v === 1).length;
+    callValid = actualCount >= calledCount;
+  }
+
+  // 广播被开玩家的真实骰子 + 百搭信息 + 叫骰验证
   broadcast(room.roomId, {
     type: 'challenge_player_result',
     data: {
@@ -471,7 +489,12 @@ function handleChallengePlayer(ws, data) {
       challengerNickname: player.nickname,
       targetId: target.userId,
       targetNickname: target.nickname,
-      diceValues: [...target.diceValues]
+      diceValues: [...target.diceValues],
+      wildcardCount,
+      callValid,
+      calledCount,
+      calledPoint,
+      actualCount
     }
   });
 }

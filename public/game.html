@@ -1243,8 +1243,12 @@
 
       case 'challenge_player_result': {
         const result = msg.data;
-        // 横幅展示被开人的骰子
-        showChallengeBanner(result.targetNickname, result.diceValues);
+        // 横幅展示被开人的骰子 + 百搭信息 + 叫骰验证
+        showChallengeBanner(
+          result.targetNickname, result.diceValues,
+          result.wildcardCount, result.callValid,
+          result.calledCount, result.calledPoint, result.actualCount
+        );
         break;
       }
 
@@ -1483,7 +1487,7 @@
   });
 
   // ========== 开骰结果横幅 ==========
-  function showChallengeBanner(nickname, diceValues) {
+  function showChallengeBanner(nickname, diceValues, wildcardCount, callValid, calledCount, calledPoint, actualCount) {
     $('#bannerTitle').textContent = nickname + ' 的真实骰子';
     const diceContainer = $('#bannerDice');
     diceContainer.innerHTML = '';
@@ -1511,6 +1515,39 @@
       }
       diceContainer.appendChild(card);
     });
+
+    // 清除旧附加元素
+    const oldSummary = document.getElementById('bannerSummary');
+    if (oldSummary) oldSummary.remove();
+    const oldCallResult = document.getElementById('bannerCallResult');
+    if (oldCallResult) oldCallResult.remove();
+
+    const bannerBox = document.querySelector('.banner-box');
+    const closeBtn = $('#bannerClose');
+
+    // 百搭提示
+    if (wildcardCount > 0) {
+      const summary = document.createElement('div');
+      summary.id = 'bannerSummary';
+      summary.style.cssText = 'color:#ffd700;font-size:12px;margin-top:14px;text-align:center;';
+      summary.textContent = '🃏 百搭(1点) ×' + wildcardCount + ' — 可算作任意点数';
+      bannerBox.insertBefore(summary, closeBtn);
+    }
+
+    // 叫骰验证
+    if (callValid !== null && callValid !== undefined) {
+      const callResult = document.createElement('div');
+      callResult.id = 'bannerCallResult';
+      callResult.style.cssText = 'margin-top:10px;padding:8px 0;font-size:14px;font-weight:700;text-align:center;';
+      if (callValid) {
+        callResult.style.color = '#4caf50';
+        callResult.textContent = '✅ 叫骰 ' + calledCount + '个' + calledPoint + ' 成立！';
+      } else {
+        callResult.style.color = '#ff5e5e';
+        callResult.textContent = '❌ 叫骰 ' + calledCount + '个' + calledPoint + ' 不成立！实际仅 ' + actualCount + ' 个';
+      }
+      bannerBox.insertBefore(callResult, closeBtn);
+    }
 
     $('#challengeBanner').classList.add('show');
   }
