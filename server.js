@@ -124,10 +124,15 @@ const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url, true);
   const pathname = parsed.pathname;
 
-  // 静态文件
+  // 静态文件（用 path.resolve 避免 Linux 上 path.join 遇绝对路径段重置）
   if (req.method === 'GET' && !pathname.startsWith('/room/')) {
-    let filePath = pathname === '/' ? '/index.html' : pathname;
-    filePath = path.join(__dirname, 'public', filePath);
+    let filePath = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
+    filePath = path.resolve(__dirname, 'public', filePath);
+    // 安全检查：防止目录穿越
+    const publicDir = path.resolve(__dirname, 'public');
+    if (!filePath.startsWith(publicDir + path.sep)) {
+      res.writeHead(403); res.end('Forbidden'); return;
+    }
     const extMap = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/javascript', '.json': 'application/json', '.png': 'image/png' };
     const contentType = extMap[path.extname(filePath)] || 'text/plain';
     fs.readFile(filePath, (err, data) => {

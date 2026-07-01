@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>当面摇大厅 - 郎府摇骰子</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #000;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    position: relative;
+    width: 100vw; height: 100vh;
+    max-width: 390px; max-height: 844px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .lobby-title {
+    color: #ffd700; font-size: 28px; font-weight: 800;
+    letter-spacing: 4px; margin-bottom: 12px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .lobby-subtitle {
+    color: #ccc; font-size: 14px; margin-bottom: 30px;
+  }
+  .lobby-room {
+    color: #ffd700; font-size: 18px; font-weight: 700;
+    background: rgba(255,215,0,0.1); padding: 8px 20px;
+    border: 1px solid #c8a017; border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .lobby-hint {
+    color: #888; font-size: 13px; text-align: center;
+    line-height: 1.8; max-width: 280px;
+  }
+  .btn-back {
+    margin-top: 24px; padding: 12px 36px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #fff; font-size: 16px; font-weight: 700;
+    border: 2px solid #5a1f08; border-radius: 24px;
+    cursor: pointer; outline: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  }
+  .btn-back:active { transform: scale(0.96); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="lobby-title">当面摇</div>
+  <div class="lobby-subtitle">物理骰子 · 手动填写</div>
+  <div class="lobby-room" id="roomDisplay">房间号：----</div>
+  <div class="lobby-hint">
+    当面摇模式需要玩家使用实体骰子<br>
+    摇出结果后手动填写到系统中<br>
+    <br>
+    此功能正在开发中，敬请期待！
+  </div>
+  <button class="btn-back" onclick="location.href='/'">返回首页</button>
+</div>
+<script>
+  const url = new URL(location.href);
+  const roomId = url.searchParams.get('room') || localStorage.getItem('langfu_roomId') || '----';
+  document.getElementById('roomDisplay').textContent = '房间号：' + roomId;
+</script>
+</body>
+</html>

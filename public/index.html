@@ -9,6 +9,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     width: 100%; height: 100%; overflow: hidden;
+    background: #000;
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -657,8 +658,11 @@
     localStorage.setItem('langfu_nickname', nickname);
     localStorage.setItem('langfu_roomId', code);
     localStorage.setItem('langfu_isHost', '1');
-    // 跳转到配置页面
-    window.location.href = '/setup.html?room=' + code;
+    // 显示加载态再跳转（避免白屏等待）
+    showLoading('正在进入房间配置...', false);
+    setTimeout(() => {
+      window.location.href = '/setup.html?room=' + code;
+    }, 200);
   });
 
   // ========== 确认加入房间（XHR，带原生超时） ==========

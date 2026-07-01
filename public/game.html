@@ -3,13 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<!-- game.html v2.1 - 2026-06-29: 增大骰子尺寸+圆点清晰度+动态骰子数量 -->
+<!-- game.html v2.2 - 2026-07-01: Three.js defer 加载+防止白屏+CDN容错 -->
 <title>大话骰对决 - 郎府摇骰子</title>
+<!-- Three.js defer 加载，不阻塞页面渲染；CDN 优先 jsdelivr，失败回退 unpkg -->
+<script defer src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"
+        onerror="this.onerror=null;this.src='https://unpkg.com/three@0.157.0/build/three.min.js';"></script>
 <style>
   /* ========== 基础重置 ========== */
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     width: 100%; height: 100%; overflow: hidden;
+    background: #000;
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -672,10 +676,7 @@
 
 </div>
 
-<!-- Three.js from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
-
-<script>
+<!-- 内联脚本：DOMContentLoaded 后执行，此时 defer 的 Three.js 已就绪 -->
   // ========== 工具 ==========
   const $ = (sel) => document.querySelector(sel);
   const toast = (msg, ms = 2000) => {
@@ -1614,7 +1615,18 @@
     });
   }
 
-  init();
+  // 等待 defer 的 Three.js 加载完成后再初始化（不阻塞页面渲染）
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof THREE === 'undefined') {
+        toast('3D引擎加载失败，请刷新重试', 10000);
+        return;
+      }
+      init();
+    });
+  } else {
+    init();
+  }
 </script>
 </body>
 </html>
