@@ -400,6 +400,43 @@
   }
   .toast.show { display: block; }
 
+  /* ========== 加载遮罩 ========== */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 150;
+    display: none; align-items: center; justify-content: center;
+  }
+  .loading-overlay.show { display: flex; }
+  .loading-box {
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    border: 2px solid #ffd970;
+    border-radius: 12px;
+    padding: 24px 28px;
+    color: #ffd700;
+    font-size: 14px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(255, 215, 0, 0.3);
+    border-top-color: #ffd700;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { line-height: 1.6; white-space: pre-line; }
+  .loading-cancel {
+    margin-top: 14px; padding: 6px 20px;
+    background: linear-gradient(180deg, #6a6a6a 0%, #4a4a4a 50%, #2a2a2a 100%);
+    color: #ccc; font-size: 13px;
+    border: 1px solid #555; border-radius: 16px;
+    cursor: pointer; outline: none;
+  }
+  .loading-cancel:active { transform: scale(0.96); }
+
 </style>
 </head>
 <body>
@@ -524,16 +561,50 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+  <!-- 加载遮罩 -->
+  <div class="loading-overlay" id="loading">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loadingText">正在连接，请稍候...</div>
+      <button class="loading-cancel" id="loadingCancel">取消</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
   // ========== 工具 ==========
   const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => document.querySelectorAll(sel);
   const toast = (msg, ms = 2000) => {
     const t = $('#toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), ms);
   };
+
+  // ========== 加载遮罩 ==========
+  const showLoading = (text, showCancel) => {
+    $('#loadingText').textContent = text || '加载中...';
+    $('#loadingCancel').style.display = showCancel ? 'inline-block' : 'none';
+    $('#loading').classList.add('show');
+  };
+  const hideLoading = () => $('#loading').classList.remove('show');
+  const setLoadingText = (text) => $('#loadingText').textContent = text;
+
+  // ========== XHR 请求（带浏览器原生超时，兼容所有手机） ==========
+  function xhrPost(url, body, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.timeout = timeoutMs || 120000; // 默认120s，足够Render冷启动
+      xhr.onload = () => {
+        try { resolve({ status: xhr.status, data: JSON.parse(xhr.responseText) }); }
+        catch (e) { reject(new Error('解析响应失败')); }
+      };
+      xhr.ontimeout = () => reject(new Error('连接超时，请检查网络后重试'));
+      xhr.onerror = () => reject(new Error('网络连接失败，请检查网络'));
+      xhr.send(JSON.stringify(body));
+    });
+  }
 
   // 用户身份（持久化）
   const MY_USER_ID = 'u_' + Math.random().toString(36).slice(2, 10);
@@ -590,8 +661,10 @@
     window.location.href = '/setup.html?room=' + code;
   });
 
-  // ========== 确认加入房间 ==========
-  $('#btnJoinConfirm').addEventListener('click', async () => {
+  // ========== 确认加入房间（XHR，带原生超时） ==========
+  let isJoining = false, joinXHR = null;
+  $('#btnJoinConfirm').addEventListener('click', () => {
+    if (isJoining) return;
     const code = $('#inputJoinCode').value.trim();
     const nickname = $('#inputJoinName').value.trim();
     if (!code || code.length !== 4) return toast('请输入4位房间号');
@@ -599,23 +672,38 @@
     if (nickname.length > 8) return toast('昵称最多8个字符');
     localStorage.setItem('langfu_nickname', nickname);
 
-    try {
-      const res = await fetch('/room/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: MY_USER_ID, nickname, roomId: code })
-      });
-      const data = await res.json();
+    isJoining = true;
+    showLoading('正在加入房间...', true);
+
+    const warmUpTimer = setTimeout(() => setLoadingText('服务器唤醒中，请耐心等待...\n大约需要1-3分钟'), 8000);
+
+    joinXHR = xhrPost('/room/join', { userId: MY_USER_ID, nickname, roomId: code }, 120000);
+    joinXHR.then(({ data }) => {
+      clearTimeout(warmUpTimer);
       if (data.code === 0) {
         localStorage.setItem('langfu_roomId', code);
         localStorage.setItem('langfu_isHost', '0');
         window.location.href = '/game.html?room=' + code;
       } else {
         toast(data.msg || data.error || '加入失败');
+        hideLoading();
       }
-    } catch (e) {
-      toast('网络错误，请检查网络');
-    }
+    }).catch(e => {
+      clearTimeout(warmUpTimer);
+      hideLoading();
+      toast(e.message || '网络错误，请稍后重试', 4000);
+    }).finally(() => {
+      isJoining = false;
+      joinXHR = null;
+    });
+  });
+
+  // 加载中取消按钮
+  $('#loadingCancel').addEventListener('click', () => {
+    if (joinXHR) { joinXHR = null; }
+    hideLoading();
+    isJoining = false;
+    toast('已取消');
   });
 
   // 回车提交
