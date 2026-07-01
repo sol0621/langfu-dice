@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>郎府摇骰子</title>
+<style>
+  /* ========== 基础重置 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========== 根容器（H5基准：iPhone 12/13/14 = 390×844 逻辑像素） ========== */
+  .app {
+    position: relative;
+    width: 100vw; height: 100vh;
+    max-width: 390px; max-height: 844px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* ========== 顶部木色桌边（设计稿顶部也有） ========== */
+  .wood-top, .wood-bottom {
+    position: absolute; left: 0; right: 0; height: 80px;
+    background:
+      linear-gradient(180deg, #6b4a1f 0%, #8a5e25 18%, #5a3d18 50%, #3d2810 100%);
+    z-index: 1;
+  }
+  .wood-top { top: 0; border-bottom: 2px solid #2a1a08; }
+  .wood-bottom { bottom: 0; border-top: 2px solid #2a1a08; }
+
+  /* 木纹纹理 */
+  .wood-top::before, .wood-bottom::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0px, transparent 18px,
+        rgba(0,0,0,0.15) 18px, rgba(0,0,0,0.15) 19px,
+        transparent 19px, transparent 35px,
+        rgba(255,200,100,0.05) 35px, rgba(255,200,100,0.05) 36px
+      );
+  }
+
+  /* ========== 中央黑色毛毡背景 ========== */
+  .felt {
+    position: absolute; top: 80px; bottom: 80px; left: 0; right: 0;
+    background:
+      radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
+    z-index: 2;
+  }
+
+  /* 毛毡纹理（短绒纤维） */
+  .felt::before {
+    content: ''; position: absolute; inset: 0; opacity: 0.45;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(80,80,80,0.5) 0%, transparent 1%),
+      radial-gradient(circle at 70% 60%, rgba(60,60,60,0.4) 0%, transparent 1%),
+      radial-gradient(circle at 40% 80%, rgba(70,70,70,0.45) 0%, transparent 1%),
+      radial-gradient(circle at 85% 25%, rgba(55,55,55,0.4) 0%, transparent 1%),
+      radial-gradient(circle at 15% 65%, rgba(75,75,75,0.45) 0%, transparent 1%),
+      radial-gradient(circle at 55% 15%, rgba(65,65,65,0.4) 0%, transparent 1%),
+      radial-gradient(circle at 90% 75%, rgba(70,70,70,0.45) 0%, transparent 1%),
+      radial-gradient(circle at 10% 45%, rgba(60,60,60,0.4) 0%, transparent 1%);
+    background-size: 12px 12px, 14px 14px, 16px 16px, 13px 13px, 15px 15px, 11px 11px, 14px 14px, 12px 12px;
+  }
+
+  /* 毛毡纤维条纹 */
+  .felt::after {
+    content: ''; position: absolute; inset: 0; opacity: 0.3;
+    background-image:
+      repeating-linear-gradient(45deg,
+        transparent 0, transparent 2px,
+        rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 3px),
+      repeating-linear-gradient(-45deg,
+        transparent 0, transparent 2px,
+        rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 3px);
+  }
+
+  /* ========== 装饰元素：四角麻将、筹码、骰子 ========== */
+
+  /* 顶部装饰 */
+  .deco-top-left { position: absolute; top: 30px; left: 0; z-index: 3; }
+  .deco-top-right { position: absolute; top: 20px; right: 0; z-index: 3; }
+
+  /* 底部装饰 */
+  .deco-bottom-left { position: absolute; bottom: 100px; left: 0; z-index: 3; }
+  .deco-bottom-right { position: absolute; bottom: 100px; right: 0; z-index: 3; }
+
+  /* 麻将牌：黄色/橙色 圆角矩形 */
+  .mahjong-stack {
+    position: relative; width: 130px; height: 100px;
+  }
+  .mahjong-stack .card {
+    position: absolute; width: 70px; height: 50px;
+    background: linear-gradient(180deg, #f4c97a 0%, #d4a05a 50%, #b8843e 100%);
+    border: 2px solid #5a3a18;
+    border-radius: 6px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .mahjong-stack .card::after {
+    content: ''; position: absolute; inset: 4px;
+    border: 1px solid rgba(90,58,24,0.4); border-radius: 4px;
+  }
+  /* 顶部右：麻将牌堆叠+白骰子 */
+  .deco-top-right .mahjong-stack { transform: translateX(20px); }
+  .deco-top-right .card:nth-child(1) { left: 0; top: 0; transform: rotate(-2deg); }
+  .deco-top-right .card:nth-child(2) { left: 10px; top: 8px; transform: rotate(1deg); }
+  .deco-top-right .card:nth-child(3) { left: 20px; top: 16px; transform: rotate(-1deg); }
+
+  /* 筹码：金色圆形 */
+  .chips {
+    position: relative; width: 120px; height: 80px;
+  }
+  .chip {
+    position: absolute; width: 40px; height: 40px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 30%, #ffd970 0%, #d4a017 50%, #8b6914 100%);
+    border: 3px solid #5a3a08;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 -2px 4px rgba(0,0,0,0.3);
+  }
+  .chip::after {
+    content: ''; position: absolute; inset: 6px; border-radius: 50%;
+    border: 1px dashed rgba(90,58,8,0.6);
+  }
+  .deco-top-left .chip:nth-child(1) { left: 0; top: 20px; transform: rotate(-15deg); }
+  .deco-top-left .chip:nth-child(2) { left: 20px; top: 10px; transform: rotate(20deg); }
+  .deco-top-left .chip:nth-child(3) { left: 40px; top: 30px; transform: rotate(-5deg); }
+
+  /* 白骰子 */
+  .white-dice {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #ffffff 0%, #e8e8e8 100%);
+    border-radius: 6px;
+    border: 1px solid #999;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5), inset 0 -2px 3px rgba(0,0,0,0.15);
+    position: relative;
+  }
+  .white-dice .dot {
+    position: absolute; width: 5px; height: 5px;
+    background: #b00; border-radius: 50%;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.3);
+  }
+  .white-dice.d4 .dot { /* 四点：四个角 */
+    top: 6px; left: 6px;
+    box-shadow:
+      19px 0 0 #b00,
+      0 19px 0 #b00,
+      19px 19px 0 #b00;
+  }
+  .deco-top-right .white-dice { position: absolute; right: 70px; top: 60px; transform: rotate(15deg); }
+  .deco-bottom-right .white-dice { position: absolute; right: 10px; bottom: 10px; transform: rotate(-10deg); }
+
+  /* 底部左：麻将牌堆 */
+  .deco-bottom-left .mahjong-stack { transform: translate(-10px, 0); }
+  .deco-bottom-left .card:nth-child(1) { left: 0; top: 0; transform: rotate(3deg); }
+  .deco-bottom-left .card:nth-child(2) { left: 12px; top: 10px; transform: rotate(-2deg); }
+  .deco-bottom-left .card:nth-child(3) { left: 24px; top: 20px; transform: rotate(4deg); }
+
+  /* 底部右：麻将牌堆 */
+  .deco-bottom-right .mahjong-stack { transform: translate(15px, 0); }
+  .deco-bottom-right .card:nth-child(1) { left: 0; top: 0; transform: rotate(-3deg); }
+  .deco-bottom-right .card:nth-child(2) { left: 10px; top: 8px; transform: rotate(2deg); }
+
+  /* ========== 主内容区 ========== */
+  .content {
+    position: relative; z-index: 5;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 90px 0 90px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .content::-webkit-scrollbar { display: none; }
+
+  /* ========== 品牌区 ========== */
+  .brand {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 30px;
+  }
+
+  /* 骰子图标：菱形3D骰子 */
+  .dice-icon {
+    position: relative;
+    width: 56px; height: 56px;
+    margin-bottom: 6px;
+    transform: rotate(0deg);
+  }
+  .dice-icon::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, #ffe066 0%, #d4a017 50%, #8b6914 100%);
+    border: 2px solid #4a2a08;
+    transform: rotate(45deg);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 -2px 3px rgba(0,0,0,0.2);
+  }
+  /* 骰子上的两点 */
+  .dice-icon::after {
+    content: ''; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg);
+    width: 6px; height: 6px; background: #b00; border-radius: 50%;
+    box-shadow:
+      -14px 0 0 #b00,
+      0 -14px 0 #b00,
+      14px 0 0 #b00,
+      0 14px 0 #b00;
+  }
+
+  /* 装饰花纹：左右卷草 */
+  .ornament {
+    display: flex; align-items: center; justify-content: center;
+    width: 240px; height: 16px; margin: 2px 0;
+  }
+  .ornament-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #c8a017 50%, transparent 100%);
+  }
+  .ornament-gem {
+    width: 8px; height: 8px; margin: 0 6px;
+    background: linear-gradient(135deg, #ffd970, #c8a017);
+    transform: rotate(45deg);
+    border: 1px solid #5a3a08;
+  }
+
+  /* 主标题：亮金色金属渐变 */
+  .title-main {
+    font-size: 50px; font-weight: 900;
+    background: linear-gradient(180deg,
+      #fffce0 0%, #fff5a0 20%, #ffe066 40%, #ffd23a 60%, #ffb820 80%, #e89a0a 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 1px 0 #b8740a)
+            drop-shadow(0 2px 1px rgba(0,0,0,0.6))
+            drop-shadow(0 0 18px rgba(255,220,80,0.6))
+            drop-shadow(0 0 30px rgba(255,180,40,0.4));
+    letter-spacing: 4px;
+    margin: 4px 0 2px;
+    line-height: 1.1;
+  }
+
+  /* 副标题（白色） */
+  .title-sub {
+    font-size: 15px; font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 3px;
+    margin: 6px 0 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .title-sub::before, .title-sub::after {
+    content: ''; width: 18px; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #c8a017 50%, transparent 100%);
+  }
+
+  /* 装饰小菱形 */
+  .gem-divider {
+    display: flex; flex-direction: column; align-items: center;
+    margin: 2px 0;
+  }
+  .gem-divider .gem {
+    width: 8px; height: 8px;
+    background: linear-gradient(135deg, #ffd970, #c8a017);
+    transform: rotate(45deg);
+    border: 1px solid #5a3a08;
+    margin-bottom: 3px;
+  }
+  .gem-divider .star {
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid #c8a017;
+  }
+
+  /* ========== 口号 ========== */
+  .slogan {
+    display: flex; align-items: center; justify-content: center;
+    width: 220px; margin: 16px 0 28px;
+    color: #c8a017;
+    font-size: 16px; font-weight: 700;
+    letter-spacing: 4px;
+  }
+  .slogan::before, .slogan::after {
+    content: ''; width: 16px; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #c8a017 50%, transparent 100%);
+  }
+  .slogan-text { margin: 0 10px; }
+
+  /* ========== 按钮区 ========== */
+  .btn-group {
+    display: flex; gap: 18px;
+    margin-top: 8px;
+  }
+
+  .btn-room {
+    position: relative;
+    width: 130px; height: 50px;
+    border: none; cursor: pointer; outline: none;
+    border-radius: 25px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #ffffff; font-size: 18px; font-weight: 800;
+    letter-spacing: 2px;
+    border: 2px solid #5a1f08;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 4px rgba(0,0,0,0.3),
+      0 4px 8px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+  }
+  .btn-room:active { transform: scale(0.96); }
+  .btn-room::before {
+    content: ''; position: absolute; top: 4px; left: 8px; right: 8px; height: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%);
+    border-radius: 20px 20px 8px 8px;
+    pointer-events: none;
+  }
+
+  /* ========== 内嵌式表单（设计稿：按钮下方直接显示） ========== */
+  .form-panel {
+    width: 320px;
+    margin-top: 20px;
+    padding: 20px 24px;
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    border: 1.5px solid #8b6914;
+    border-radius: 12px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,200,100,0.15),
+      0 4px 12px rgba(0,0,0,0.5);
+    display: none;
+  }
+  .form-panel.show { display: block; }
+  .form-panel::before {
+    content: ''; position: absolute;
+    /* 装饰角（设计稿的圆角面板视觉） */
+  }
+  .form-row {
+    display: flex; align-items: center;
+    margin-bottom: 14px;
+  }
+  .form-label {
+    width: 70px; flex-shrink: 0;
+    color: #ffffff; font-size: 16px; font-weight: 600;
+    text-align: left; letter-spacing: 1px;
+  }
+  .form-input {
+    flex: 1; height: 38px; padding: 0 12px;
+    background: #0a0a0a;
+    border: 1px solid #555;
+    border-radius: 6px;
+    color: #fff; font-size: 15px;
+    outline: none;
+  }
+  .form-input:focus { border-color: #ffd700; }
+  .form-input::placeholder { color: #555; }
+
+  .form-actions {
+    display: flex; gap: 20px;
+    justify-content: center; margin-top: 18px;
+  }
+  .form-btn {
+    width: 100px; height: 38px; border: none; cursor: pointer; outline: none;
+    border-radius: 19px;
+    background: linear-gradient(180deg, #ff8a3d 0%, #ff6b1f 50%, #e54e0a 100%);
+    color: #ffffff; font-size: 16px; font-weight: 700;
+    letter-spacing: 2px;
+    border: 1.5px solid #5a1f08;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 4px rgba(0,0,0,0.3),
+      0 3px 6px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+  }
+  .form-btn:active { transform: scale(0.96); }
+  .form-btn::before {
+    content: ''; position: absolute;
+    top: 3px; left: 6px; right: 6px; height: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 100%);
+    border-radius: 16px 16px 6px 6px;
+    pointer-events: none;
+  }
+  .form-btn.cancel {
+    background: linear-gradient(180deg, #6a6a6a 0%, #4a4a4a 50%, #2a2a2a 100%);
+    border-color: #1a1a1a;
+  }
+
+  /* ========== Toast 提示 ========== */
+  .toast {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffd700; padding: 12px 20px;
+    border-radius: 8px; font-size: 14px;
+    z-index: 200; display: none;
+    border: 1px solid #c8a017;
+  }
+  .toast.show { display: block; }
+
+  /* ========== 加载遮罩 ========== */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 150;
+    display: none; align-items: center; justify-content: center;
+  }
+  .loading-overlay.show { display: flex; }
+  .loading-box {
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    border: 2px solid #ffd970;
+    border-radius: 12px;
+    padding: 20px 28px;
+    color: #ffd700;
+    font-size: 14px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(255, 215, 0, 0.3);
+    border-top-color: #ffd700;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { line-height: 1.6; }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 顶部木色桌边 -->
+  <div class="wood-top"></div>
+
+  <!-- 底部木色桌边 -->
+  <div class="wood-bottom"></div>
+
+  <!-- 中央黑色毛毡 -->
+  <div class="felt"></div>
+
+  <!-- 装饰元素：四角 -->
+  <div class="deco-top-left">
+    <div class="chips">
+      <div class="chip"></div>
+      <div class="chip"></div>
+      <div class="chip"></div>
+    </div>
+  </div>
+
+  <div class="deco-top-right">
+    <div class="mahjong-stack">
+      <div class="card"></div>
+      <div class="card"></div>
+      <div class="card"></div>
+    </div>
+    <div class="white-dice d4"></div>
+  </div>
+
+  <div class="deco-bottom-left">
+    <div class="mahjong-stack">
+      <div class="card"></div>
+      <div class="card"></div>
+      <div class="card"></div>
+    </div>
+  </div>
+
+  <div class="deco-bottom-right">
+    <div class="mahjong-stack">
+      <div class="card"></div>
+      <div class="card"></div>
+    </div>
+    <div class="white-dice d4"></div>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="content">
+
+    <!-- 品牌区 -->
+    <div class="brand">
+      <!-- 菱形骰子图标 -->
+      <div class="dice-icon"></div>
+
+      <!-- 顶部装饰花纹 -->
+      <div class="ornament">
+        <div class="ornament-line"></div>
+        <div class="ornament-gem"></div>
+        <div class="ornament-line"></div>
+      </div>
+
+      <!-- 主标题 -->
+      <div class="title-main">郎府摇骰子</div>
+
+      <!-- 副标题 -->
+      <div class="title-sub">郎西 郎东 冯各庄</div>
+
+      <!-- 装饰小菱形+星 -->
+      <div class="gem-divider">
+        <div class="gem"></div>
+        <div class="star"></div>
+      </div>
+    </div>
+
+    <!-- 口号 -->
+    <div class="slogan">
+      <span class="slogan-text">摇骰子，享欢乐</span>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="btn-group">
+      <button class="btn-room" id="btnCreate">创建房间</button>
+      <button class="btn-room" id="btnJoin">加入房间</button>
+    </div>
+
+    <!-- 内嵌表单：创建房间（点击创建按钮后展开） -->
+    <div class="form-panel" id="formCreate">
+      <div class="form-row">
+        <div class="form-label">房间号：</div>
+        <input type="text" class="form-input" id="inputCreateCode" maxlength="4" placeholder="4位数字" inputmode="numeric" readonly>
+      </div>
+      <div class="form-row">
+        <div class="form-label">昵称：</div>
+        <input type="text" class="form-input" id="inputCreateName" maxlength="8" placeholder="1-8个字符">
+      </div>
+      <div class="form-actions">
+        <button class="form-btn cancel" id="btnCreateCancel">取消</button>
+        <button class="form-btn" id="btnCreateConfirm">确定</button>
+      </div>
+    </div>
+
+    <!-- 内嵌表单：加入房间（点击加入按钮后展开） -->
+    <div class="form-panel" id="formJoin">
+      <div class="form-row">
+        <div class="form-label">房间号：</div>
+        <input type="text" class="form-input" id="inputJoinCode" maxlength="4" placeholder="4位数字" inputmode="numeric">
+      </div>
+      <div class="form-row">
+        <div class="form-label">昵称：</div>
+        <input type="text" class="form-input" id="inputJoinName" maxlength="8" placeholder="1-8个字符">
+      </div>
+      <div class="form-actions">
+        <button class="form-btn cancel" id="btnJoinCancel">取消</button>
+        <button class="form-btn" id="btnJoinConfirm">确定</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- 加载遮罩 -->
+  <div class="loading-overlay" id="loading">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loadingText">正在连接，请稍候...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ========== 工具 ==========
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+  const toast = (msg, ms = 2000) => {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), ms);
+  };
+  const showLoading = (text) => {
+    $('#loadingText').textContent = text || '加载中...';
+    $('#loading').classList.add('show');
+  };
+  const hideLoading = () => $('#loading').classList.remove('show');
+  const setLoadingText = (text) => $('#loadingText').textContent = text;
+
+  // 用户身份（持久化）
+  const MY_USER_ID = 'u_' + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem('langfu_userId', MY_USER_ID);
+
+  // ========== 表单切换 ==========
+  const formCreate = $('#formCreate');
+  const formJoin = $('#formJoin');
+
+  function showForm(which) {
+    formCreate.classList.toggle('show', which === 'create');
+    formJoin.classList.toggle('show', which === 'join');
+    if (which === 'create') {
+      // 调用后端生成房间号（预览/写入）——这里先生成4位随机数
+      $('#inputCreateCode').value = generateRoomCode();
+      setTimeout(() => $('#inputCreateName').focus(), 50);
+    } else if (which === 'join') {
+      const lastName = localStorage.getItem('langfu_nickname') || '';
+      $('#inputJoinName').value = lastName;
+      setTimeout(() => $('#inputJoinCode').focus(), 50);
+    }
+  }
+
+  function generateRoomCode() {
+    return String(Math.floor(1000 + Math.random() * 9000));
+  }
+
+  $('#btnCreate').addEventListener('click', () => showForm('create'));
+  $('#btnJoin').addEventListener('click', () => showForm('join'));
+  $('#btnCreateCancel').addEventListener('click', () => formCreate.classList.remove('show'));
+  $('#btnJoinCancel').addEventListener('click', () => formJoin.classList.remove('show'));
+
+  // 房间号只允许数字
+  ['#inputCreateCode', '#inputJoinCode'].forEach(sel => {
+    const el = $(sel);
+    if (el && !el.hasAttribute('readonly')) {
+      el.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+      });
+    }
+  });
+
+  // ========== 确认创建房间 ==========
+  $('#btnCreateConfirm').addEventListener('click', async () => {
+    const code = $('#inputCreateCode').value.trim();
+    const nickname = $('#inputCreateName').value.trim();
+    if (!code || code.length !== 4) return toast('房间号无效');
+    if (!nickname) return toast('请输入昵称');
+    if (nickname.length > 8) return toast('昵称最多8个字符');
+    localStorage.setItem('langfu_nickname', nickname);
+    localStorage.setItem('langfu_roomId', code);
+    localStorage.setItem('langfu_isHost', '1');
+    // 跳转到配置页面
+    window.location.href = '/setup.html?room=' + code;
+  });
+
+  // ========== 确认加入房间 ==========
+  let isJoining = false;
+  $('#btnJoinConfirm').addEventListener('click', async () => {
+    if (isJoining) return;
+    const code = $('#inputJoinCode').value.trim();
+    const nickname = $('#inputJoinName').value.trim();
+    if (!code || code.length !== 4) return toast('请输入4位房间号');
+    if (!nickname) return toast('请输入昵称');
+    if (nickname.length > 8) return toast('昵称最多8个字符');
+    localStorage.setItem('langfu_nickname', nickname);
+
+    isJoining = true;
+    showLoading('正在加入房间...');
+
+    const warmUpTimer = setTimeout(() => setLoadingText('服务器唤醒中，请耐心等待...\n大约需要1-3分钟'), 8000);
+
+    try {
+      // 不加超时限制，让浏览器自然等待 Render 冷启动
+      const res = await fetch('https://langfu-dice.onrender.com/room/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: MY_USER_ID, nickname, roomId: code })
+      });
+      clearTimeout(warmUpTimer);
+      const data = await res.json();
+      if (data.code === 0) {
+        localStorage.setItem('langfu_roomId', code);
+        localStorage.setItem('langfu_isHost', '0');
+        window.location.href = '/game.html?room=' + code;
+      } else {
+        toast(data.msg || data.error || '加入失败');
+        hideLoading();
+      }
+    } catch (e) {
+      clearTimeout(warmUpTimer);
+      hideLoading();
+      toast('网络错误，请检查网络后重试', 4000);
+    } finally {
+      isJoining = false;
+    }
+  });
+
+  // 回车提交
+  $('#inputCreateName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnCreateConfirm').click(); });
+  $('#inputJoinName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnJoinConfirm').click(); });
+  $('#inputJoinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#inputJoinName').focus(); });
+
+</script>
+</body>
+</html>

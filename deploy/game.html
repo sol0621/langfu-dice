@@ -1167,7 +1167,7 @@
   let ws = null;
   function connectWS() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = protocol + '//' + location.host + '/?userId=' + encodeURIComponent(MY_USER_ID) + '&roomId=' + encodeURIComponent(ROOM_ID);
+    const wsUrl = 'wss://langfu-dice.onrender.com/?userId=' + encodeURIComponent(MY_USER_ID) + '&roomId=' + encodeURIComponent(ROOM_ID);
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
