@@ -558,6 +558,7 @@
     <div class="loading-box">
       <div class="loading-spinner"></div>
       <div class="loading-text" id="loadingText">正在连接，请稍候...</div>
+      <button class="loading-cancel" id="loadingCancel" style="display:none;margin-top:12px;background:rgba(255,255,255,0.15);border:1px solid #ffd700;color:#ffd700;padding:6px 20px;border-radius:16px;font-size:13px;cursor:pointer;">取消</button>
     </div>
   </div>
 
@@ -571,12 +572,30 @@
     const t = $('#toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), ms);
   };
-  const showLoading = (text) => {
+  const showLoading = (text, cancelable) => {
     $('#loadingText').textContent = text || '加载中...';
+    $('#loadingCancel').style.display = cancelable ? 'block' : 'none';
     $('#loading').classList.add('show');
   };
   const hideLoading = () => $('#loading').classList.remove('show');
   const setLoadingText = (text) => $('#loadingText').textContent = text;
+
+  // ========== XHR 请求（用 XHR 替代 fetch，利用原生 timeout 机制防止 TCP 假死） ==========
+  function xhrPost(url, body, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.timeout = timeoutMs || 120000; // 默认120秒，足够覆盖Render冷启动
+      xhr.onload = () => {
+        try { resolve({ status: xhr.status, data: JSON.parse(xhr.responseText) }); }
+        catch (e) { reject(new Error('解析响应失败')); }
+      };
+      xhr.ontimeout = () => reject(new Error('连接超时，请检查网络后重试'));
+      xhr.onerror = () => reject(new Error('网络连接失败，请检查网络'));
+      xhr.send(JSON.stringify(body));
+    });
+  }
 
   // 用户身份（持久化）
   const MY_USER_ID = 'u_' + Math.random().toString(36).slice(2, 10);
@@ -634,8 +653,8 @@
   });
 
   // ========== 确认加入房间 ==========
-  let isJoining = false;
-  $('#btnJoinConfirm').addEventListener('click', async () => {
+  let isJoining = false, joinXHR = null;
+  $('#btnJoinConfirm').addEventListener('click', () => {
     if (isJoining) return;
     const code = $('#inputJoinCode').value.trim();
     const nickname = $('#inputJoinName').value.trim();
@@ -645,19 +664,14 @@
     localStorage.setItem('langfu_nickname', nickname);
 
     isJoining = true;
-    showLoading('正在加入房间...');
+    showLoading('正在加入房间...', true);
 
+    // 8秒后提示唤醒中
     const warmUpTimer = setTimeout(() => setLoadingText('服务器唤醒中，请耐心等待...\n大约需要1-3分钟'), 8000);
 
-    try {
-      // 不加超时限制，让浏览器自然等待 Render 冷启动
-      const res = await fetch('https://langfu-dice.onrender.com/room/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: MY_USER_ID, nickname, roomId: code })
-      });
+    joinXHR = xhrPost('https://langfu-dice.onrender.com/room/join', { userId: MY_USER_ID, nickname, roomId: code }, 120000);
+    joinXHR.then(({ data }) => {
       clearTimeout(warmUpTimer);
-      const data = await res.json();
       if (data.code === 0) {
         localStorage.setItem('langfu_roomId', code);
         localStorage.setItem('langfu_isHost', '0');
@@ -666,13 +680,22 @@
         toast(data.msg || data.error || '加入失败');
         hideLoading();
       }
-    } catch (e) {
+    }).catch(e => {
       clearTimeout(warmUpTimer);
       hideLoading();
-      toast('网络错误，请检查网络后重试', 4000);
-    } finally {
+      toast(e.message || '网络错误，请稍后重试', 4000);
+    }).finally(() => {
       isJoining = false;
-    }
+      joinXHR = null;
+    });
+  });
+
+  // 加载中取消按钮
+  $('#loadingCancel').addEventListener('click', () => {
+    if (joinXHR) { joinXHR = null; /* XHR 无法真正取消，但标记丢弃 */ }
+    hideLoading();
+    isJoining = false;
+    toast('已取消');
   });
 
   // 回车提交
