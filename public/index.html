@@ -611,10 +611,10 @@
         localStorage.setItem('langfu_isHost', '0');
         window.location.href = '/game.html?room=' + code;
       } else {
-        toast(data.msg || '加入失败');
+        toast(data.msg || data.error || '加入失败');
       }
     } catch (e) {
-      toast('网络错误');
+      toast('网络错误，请检查网络');
     }
   });
 

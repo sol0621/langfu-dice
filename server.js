@@ -168,7 +168,7 @@ function jsonRes(res, code, data) {
 function handleHttpCreateRoom(data, res) {
   const nickname = (data.nickname || '').trim();
   if (!nickname || nickname.length > 8) {
-    return jsonRes(res, 400, { error: '昵称需1-8个字符' });
+    return jsonRes(res, 400, { code: 400, msg: '昵称需1-8个字符' });
   }
   const mode = GAME_MODES.includes(data.gameMode) ? data.gameMode : DICE_POKER;
 
@@ -177,9 +177,9 @@ function handleHttpCreateRoom(data, res) {
   if (!/^\d{4}$/.test(roomId)) {
     roomId = genRoomId();
   } else if (rooms.has(roomId)) {
-    return jsonRes(res, 400, { error: '房间号已存在，请换一个' });
+    return jsonRes(res, 400, { code: 400, msg: '房间号已存在，请换一个' });
   }
-  if (!roomId) return jsonRes(res, 500, { error: '房间创建失败，请重试' });
+  if (!roomId) return jsonRes(res, 500, { code: 500, msg: '房间创建失败，请重试' });
 
   // userId：优先用客户端指定的（保持身份一致），否则生成
   const userId = (data.userId || '').trim() || genUserId();
@@ -213,21 +213,21 @@ function handleHttpCreateRoom(data, res) {
   };
 
   rooms.set(roomId, room);
-  jsonRes(res, 200, { roomId, userId });
+  jsonRes(res, 200, { code: 0, msg: 'ok', data: { roomId, userId } });
 }
 
 // ==================== HTTP: 加入房间 ====================
 function handleHttpJoinRoom(data, res) {
   const nickname = (data.nickname || '').trim();
   const roomId = (data.roomId || '').trim();
-  if (!nickname || nickname.length > 8) return jsonRes(res, 400, { error: '昵称需1-8个字符' });
-  if (!/^\d{4}$/.test(roomId)) return jsonRes(res, 400, { error: '房间号需4位数字' });
+  if (!nickname || nickname.length > 8) return jsonRes(res, 400, { code: 400, msg: '昵称需1-8个字符' });
+  if (!/^\d{4}$/.test(roomId)) return jsonRes(res, 400, { code: 400, msg: '房间号需4位数字' });
 
   const room = rooms.get(roomId);
-  if (!room) return jsonRes(res, 404, { error: '房间不存在' });
-  if (room.roomStatus !== 'idle') return jsonRes(res, 400, { error: '游戏进行中，请等待本局结束' });
-  if (room.players.length >= 20) return jsonRes(res, 400, { error: '房间已满（最多20人）' });
-  if (room.players.some(p => p.nickname === nickname)) return jsonRes(res, 400, { error: '昵称已被使用' });
+  if (!room) return jsonRes(res, 404, { code: 404, msg: '房间不存在，请检查房间号' });
+  if (room.roomStatus !== 'idle') return jsonRes(res, 400, { code: 400, msg: '游戏进行中，请等待本局结束' });
+  if (room.players.length >= 20) return jsonRes(res, 400, { code: 400, msg: '房间已满（最多20人）' });
+  if (room.players.some(p => p.nickname === nickname)) return jsonRes(res, 400, { code: 400, msg: '该昵称已被使用，请换一个' });
 
   const userId = (data.userId || '').trim() || genUserId();
   room.players.push({
@@ -239,7 +239,7 @@ function handleHttpJoinRoom(data, res) {
 
   // 广播更新给已在线的玩家
   broadcast(roomId, buildRoomUpdate(room));
-  jsonRes(res, 200, { roomId, userId });
+  jsonRes(res, 200, { code: 0, msg: 'ok', data: { roomId, userId } });
 }
 
 // ==================== WebSocket ====================
