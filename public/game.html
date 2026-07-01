@@ -679,6 +679,7 @@
   const MY_USER_ID = localStorage.getItem('langfu_userId') || ('u_' + Math.random().toString(36).slice(2, 10));
   localStorage.setItem('langfu_userId', MY_USER_ID);
   const DICE_COUNT = parseInt(localStorage.getItem('langfu_diceCount'), 10) || 5; // 大话骰默认5颗
+  const IS_HOST = localStorage.getItem('langfu_isHost') === '1';
 
   // ========== 状态 ==========
   let myDiceValues = [];
@@ -735,7 +736,13 @@
   });
 
   // ========== 重置按钮 ==========
+  if (!IS_HOST) {
+    // 非房主隐藏重置按钮
+    $('#btnReset').style.display = 'none';
+  }
   $('#btnReset').addEventListener('click', () => {
+    // 双重保护：非房主不能重置
+    if (!IS_HOST) return toast('仅房主可重置');
     // 重置本地状态，让【开摇】按钮恢复可点击
     isRolled = false;
     isRolling = false;
