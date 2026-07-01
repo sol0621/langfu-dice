@@ -523,19 +523,24 @@
         })
       });
       const data = await res.json();
-      if (data.roomId) {
+      const resRoomId = data.roomId || (data.data && data.data.roomId) || null;
+      const resUserId = data.userId || (data.data && data.data.userId) || null;
+
+      if (resRoomId) {
         // 暂存后端返回的 userId
-        if (data.userId) localStorage.setItem('langfu_userId', data.userId);
-        localStorage.setItem('langfu_roomId', data.roomId);
+        if (resUserId) localStorage.setItem('langfu_userId', resUserId);
+        localStorage.setItem('langfu_roomId', resRoomId);
         localStorage.setItem('langfu_isHost', '1');
         // 跳转到对决页面
         if (playMode === 'online') {
-          window.location.href = '/game.html?room=' + data.roomId;
+          window.location.href = '/game.html?room=' + resRoomId;
         } else {
-          window.location.href = '/lobby.html?room=' + data.roomId;
+          window.location.href = '/lobby.html?room=' + resRoomId;
         }
+      } else if (data.code !== 0 && data.msg) {
+        toast(data.msg);
       } else if (data.error) {
-        // 房间号已存在等情况
+        // 兼容旧格式
         toast(data.error);
       } else {
         toast('创建失败');
