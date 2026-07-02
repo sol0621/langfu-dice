@@ -231,6 +231,7 @@ function handleHttpJoinRoom(data, res) {
   const room = rooms.get(roomId);
   if (!room) return jsonRes(res, 404, { code: 404, msg: '房间不存在，请检查房间号' });
   if (room.roomStatus !== 'idle') return jsonRes(res, 400, { code: 400, msg: '游戏进行中，请等待本局结束' });
+  if (room.players.some(p => p.isRolled)) return jsonRes(res, 400, { code: 400, msg: '有人在摇骰中，请等所有人完成后再加入' });
   if (room.players.length >= 20) return jsonRes(res, 400, { code: 400, msg: '房间已满（最多20人）' });
   if (room.players.some(p => p.nickname === nickname)) return jsonRes(res, 400, { code: 400, msg: '该昵称已被使用，请换一个' });
 
