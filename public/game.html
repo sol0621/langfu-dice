@@ -704,6 +704,7 @@
   let currentCallPoint = 1;
   let currentTurnUserId = null; // 当前轮到谁叫骰
   let roomState = { players: [], roomStatus: 'idle', hostId: null };
+  let lastChallengeResult = null; // 最近一次开骰结果，关闭弹窗时由开骰者触发重置
 
   // ========== 音效系统（真实摇骰子录音） ==========
   let diceAudio = null;
@@ -1255,6 +1256,29 @@
         updateUI();
         break;
 
+      case 'reset_rolled': {
+        // 收到重置事件，清空所有玩家的摇骰状态 + 自己的本地骰子显示
+        roomState.players.forEach(p => {
+          p.isRolled = false;
+          p.currentCall = null;
+        });
+        isRolled = false;
+        isRolling = false;
+        isShowingResult = false;
+        waitingForResult = false;
+        myDiceValues = [];
+        // 隐藏2D结果，3D骰子回初始
+        hideDice2D();
+        layoutDiceIdle();
+        diceMeshes.forEach(m => {
+          m.rotation.set(Math.random() * 0.5, Math.random() * 0.8, Math.random() * 0.3);
+        });
+        updatePlayerList();
+        updateUI();
+        toast('新一轮，所有人重新摇骰');
+        break;
+      }
+
       case 'turn_update':
         currentTurnUserId = msg.data.currentCallerId;
         updatePlayerList();
@@ -1263,10 +1287,11 @@
 
       case 'challenge_player_result': {
         const result = msg.data;
+        lastChallengeResult = result; // 记录，关闭弹窗时由开骰者触发重置
         // 横幅展示被开人的骰子 + 百搭信息 + 叫骰验证
         showChallengeBanner(
-          result.targetNickname, result.diceValues,
-          result.wildcardCount, result.callValid,
+          result.challengerNickname, result.targetNickname,
+          result.diceValues, result.wildcardCount, result.callValid,
           result.calledCount, result.calledPoint, result.actualCount
         );
         break;
@@ -1507,8 +1532,8 @@
   });
 
   // ========== 开骰结果横幅 ==========
-  function showChallengeBanner(nickname, diceValues, wildcardCount, callValid, calledCount, calledPoint, actualCount) {
-    $('#bannerTitle').textContent = nickname + ' 的真实骰子';
+  function showChallengeBanner(challengerNickname, targetNickname, diceValues, wildcardCount, callValid, calledCount, calledPoint, actualCount) {
+    $('#bannerTitle').textContent = (challengerNickname || '玩家') + ' 开骰：' + (targetNickname || '玩家') + ' 的真实骰子';
     const diceContainer = $('#bannerDice');
     diceContainer.innerHTML = '';
 
@@ -1574,6 +1599,11 @@
 
   function hideChallengeBanner() {
     $('#challengeBanner').classList.remove('show');
+    // 只有开骰者关闭弹窗时，才触发全局摇骰状态重置
+    if (lastChallengeResult && lastChallengeResult.challengerId === MY_USER_ID) {
+      sendWS({ type: 'reset_rolled', data: {} });
+    }
+    lastChallengeResult = null;
   }
 
   $('#bannerClose').addEventListener('click', hideChallengeBanner);

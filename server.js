@@ -388,6 +388,7 @@ function handleMessage(ws, msg) {
       case 'call_dice':     handleCallDice(ws, data); break;
       case 'challenge_player': handleChallengePlayer(ws, data); break;
       case 'reset_round':   handleResetRound(ws); break;
+      case 'reset_rolled':  handleResetRolled(ws); break;
       default: send(ws, { type: 'error', data: { message: `未知消息类型: ${type}` } });
     }
   } catch (e) {
@@ -527,6 +528,25 @@ function handleResetRound(ws) {
     p.total = 0;
   });
 
+  broadcast(room.roomId, buildRoomUpdate(room));
+}
+
+// ==================== 重置所有玩家摇骰状态（开骰者关闭结果弹窗后触发） ====================
+function handleResetRolled(ws) {
+  const { room } = getRoomPlayer(ws);
+
+  // 重置当前叫骰，清空本轮状态
+  resetCurrentCall();
+
+  // 所有玩家摇骰状态归零，保留在房间中
+  room.players.forEach(p => {
+    p.isRolled = false;
+    p.diceValues = [];
+    p.total = 0;
+  });
+
+  // 先广播重置事件，再广播房间状态
+  broadcast(room.roomId, { type: 'reset_rolled', data: {} });
   broadcast(room.roomId, buildRoomUpdate(room));
 }
 
