@@ -1464,7 +1464,8 @@
     const isMyTurn = currentTurnUserId === MY_USER_ID;
     const canCall = isRolled && isMyTurn;
     btnCall.disabled = !canCall;
-    btnOpen.disabled = !canCall;
+    // 开骰只需已摇，不需要"轮到你"——大话骰规则允许任何人随时开
+    btnOpen.disabled = !isRolled;
   }
 
   // 更新叫骰区标题的轮次提示
