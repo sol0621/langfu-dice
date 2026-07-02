@@ -781,6 +781,8 @@
 
     // 更新UI
     updateUI();
+    // 通知服务器重置全员摇骰状态，这样新玩家才能加入
+    sendWS({ type: 'reset_rolled', data: {} });
     toast('已重置，可以重新摇骰子');
   });
 
